@@ -13,6 +13,13 @@ class ChromeExtensionPropertyCaptureTests(unittest.TestCase):
         self.assertIn("downloads", manifest["permissions"])
         self.assertIn("property", manifest["description"].lower())
 
+    def test_manifest_icons_exist(self):
+        # Chrome refuses to load an unpacked extension whose icons are missing.
+        manifest = json.loads((EXTENSION / "manifest.json").read_text(encoding="utf-8"))
+        icon_paths = set(manifest["icons"].values()) | set(manifest["action"]["default_icon"].values())
+        for icon in icon_paths:
+            self.assertTrue((EXTENSION / icon).is_file(), icon)
+
     def test_popup_and_scripts_wire_property_capture_actions(self):
         popup = (EXTENSION / "popup.html").read_text(encoding="utf-8")
         popup_js = (EXTENSION / "popup.js").read_text(encoding="utf-8")
