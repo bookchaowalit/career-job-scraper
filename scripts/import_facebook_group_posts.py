@@ -139,6 +139,7 @@ _FACEBOOK_HOSTS = {"facebook.com", "fb.com"}
 _VISIBILITY_VALUES = {"public", "private", "unknown"}
 _CAPTURE_METHODS = {
     "chrome_extension_visible_tab",
+    "chrome_extension_auto_scroll",
     "manual_browser_export",
     "playwright_visible_tab",
 }

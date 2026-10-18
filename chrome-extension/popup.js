@@ -33,8 +33,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const exportFacebookGroupPostsBtn = document.getElementById('exportFacebookGroupPostsBtn');
   const clearFacebookGroupCaptureBtn = document.getElementById('clearFacebookGroupCaptureBtn');
   const facebookGroupSuccess = document.getElementById('facebookGroupSuccess');
+  const autoCaptureBtn = document.getElementById('autoCaptureBtn');
+  const autoCaptureStopBtn = document.getElementById('autoCaptureStopBtn');
+  const autoCaptureStatus = document.getElementById('autoCaptureStatus');
   let facebookGroupCapture = { group_url: '', group_name: '', captured_at: '', posts: [] };
   let facebookGroupCaptureRounds = 0;
+  // Permalinks the operator unticked; kept across re-renders so a new
+  // auto-capture batch does not re-select them.
+  const deselectedPostUrls = new Set();
   const FACEBOOK_GROUP_DRAFT_LIMIT = 500;
   const FACEBOOK_GROUP_DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -339,12 +345,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function persistFacebookGroupCaptureDraft() {
     try {
-      if (!facebookGroupCapture.posts.length) {
-        await chrome.storage.local.remove(['facebookGroupCaptureDraft']);
-        return;
-      }
-      await chrome.storage.local.set({
-        facebookGroupCaptureDraft: {
+      // Sent through background.js so it queues behind auto-capture batches;
+      // an empty draft clears it there.
+      await chrome.runtime.sendMessage({
+        action: 'writeCaptureDraft',
+        draft: {
           group_url: facebookGroupCapture.group_url,
           group_name: facebookGroupCapture.group_name,
           captured_at: facebookGroupCapture.captured_at,
@@ -422,9 +427,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.dataset.index = String(index);
-      checkbox.checked = Boolean(post.post_url);
+      checkbox.checked = Boolean(post.post_url) && !deselectedPostUrls.has(post.post_url);
       checkbox.disabled = !post.post_url;
-      checkbox.addEventListener('change', updateFacebookGroupSelectionState);
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) deselectedPostUrls.delete(post.post_url);
+        else deselectedPostUrls.add(post.post_url);
+        updateFacebookGroupSelectionState();
+      });
       if (post.post_url) selectable += 1;
 
       const body = document.createElement('div');
@@ -440,6 +449,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       facebookGroupPostsArea.appendChild(wrapper);
     });
     saveFacebookGroupPostsBtn.disabled = selectable === 0;
+    updateFacebookGroupSelectionState();
   }
 
   function updateFacebookGroupSelectionState() {
@@ -531,6 +541,108 @@ document.addEventListener('DOMContentLoaded', async () => {
     facebookGroupStatus.textContent = 'ล้าง draft ในเครื่องแล้ว เริ่ม capture กลุ่มใหม่ได้';
     renderFacebookGroupPosts();
   }
+
+  // Auto-scroll capture: runs in the Facebook tab (content.js); batches are
+  // merged into the capture draft by background.js, which this popup reloads
+  // as it changes.  Review, visibility and Save stay manual.
+  const AUTO_CAPTURE_REASONS = {
+    max_posts: 'ครบจำนวนโพสต์สูงสุด',
+    time_limit: 'ครบเวลาสูงสุด',
+    no_new_posts: 'ไม่มีโพสต์ใหม่แล้ว',
+    reached_saved_post: 'เจอโพสต์ที่เคยบันทึกไว้',
+    stopped: 'หยุดโดยผู้ใช้',
+    left_group: 'ออกจากหน้ากลุ่ม',
+    error: 'เกิดข้อผิดพลาด',
+    interrupted: 'แท็บถูกรีเฟรชหรือปิดระหว่างทำงาน',
+    storage_failed: 'บันทึกลงเครื่องไม่สำเร็จ (พื้นที่เต็ม?)',
+  };
+
+  function renderAutoCaptureStatus(status) {
+    const running = Boolean(status && status.running);
+    autoCaptureBtn.disabled = running;
+    autoCaptureStopBtn.style.display = running ? 'block' : 'none';
+    if (!status || (!status.running && !status.finished_at)) {
+      autoCaptureStatus.style.display = 'none';
+      return;
+    }
+    autoCaptureStatus.style.display = 'block';
+    autoCaptureStatus.textContent = running
+      ? `🤖 กำลังเลื่อนและเก็บ… ได้ ${status.found || 0} โพสต์`
+      : `🤖 จบแล้ว: ${AUTO_CAPTURE_REASONS[status.reason] || status.reason || ''} · ได้ ${status.found || 0} โพสต์ ตรวจแล้วเลือก Visibility ก่อน Save${status.error ? ` (${status.error})` : ''}`;
+  }
+
+  function applyDraftFromStorage(nextDraft) {
+    if (!nextDraft || !Array.isArray(nextDraft.posts)) return;
+    const nextGroup = String(nextDraft.group_url || '').trim();
+    if (nextGroup !== facebookGroupCapture.group_url) {
+      // A different group: its visibility must be confirmed again, never
+      // inherited from the group shown before.
+      const stored = String(nextDraft.visibility || '').toLowerCase();
+      facebookGroupVisibility.value = ['public', 'private'].includes(stored) ? stored : 'unknown';
+      deselectedPostUrls.clear();
+    }
+    facebookGroupCapture = {
+      group_url: String(nextDraft.group_url || '').trim(),
+      group_name: String(nextDraft.group_name || '').trim(),
+      captured_at: String(nextDraft.captured_at || ''),
+      posts: mergeFacebookGroupPosts([], nextDraft.posts).slice(-FACEBOOK_GROUP_DRAFT_LIMIT),
+    };
+    facebookGroupCaptureRounds = Math.max(0, Number(nextDraft.capture_rounds) || 0);
+    renderFacebookGroupPosts();
+  }
+
+  async function startAutoCapture() {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    await ensureContentScript(tab.id);
+    const { savedFacebookGroupPosts = [] } = await chrome.storage.local.get(['savedFacebookGroupPosts']);
+    const knownPermalinks = savedFacebookGroupPosts.map((post) => canonicalFacebookGroupPostUrl(post && post.post_url)).filter(Boolean).slice(-2000);
+    // Written before starting so the first batch merges into it.
+    const runId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    await chrome.storage.local.set({ autoCaptureStatus: { running: true, run_id: runId, tab_id: tab.id, started_at: new Date().toISOString(), found: 0 } });
+    chrome.tabs.sendMessage(tab.id, { action: 'autoCapture', runId, maxPosts: 40, maxMinutes: 5, knownPermalinks }, (response) => {
+      if (chrome.runtime.lastError || !response || !response.ok) {
+        const error = (response && response.error) || 'not_a_group_page';
+        if (error !== 'already_running') chrome.storage.local.remove(['autoCaptureStatus']);
+        autoCaptureStatus.style.display = 'block';
+        autoCaptureStatus.textContent = error === 'already_running'
+          ? 'กำลังทำงานอยู่แล้วในแท็บนี้'
+          : 'เริ่มไม่ได้ ให้เปิดหน้า Facebook Group แล้วลองใหม่';
+      }
+    });
+  }
+
+  async function stopAutoCapture() {
+    const { autoCaptureStatus: status } = await chrome.storage.local.get(['autoCaptureStatus']);
+    if (status && status.tab_id !== undefined) {
+      chrome.tabs.sendMessage(status.tab_id, { action: 'autoCaptureStop' }, (response) => {
+        // The tab may be gone or reloaded (a fresh content script reports
+        // running:false); mark the run finished so the UI recovers.
+        if (chrome.runtime.lastError || !response || !response.running) {
+          chrome.storage.local.set({ autoCaptureStatus: { ...status, running: false, finished_at: new Date().toISOString(), reason: 'stopped' } });
+        }
+      });
+    }
+  }
+
+  autoCaptureBtn.addEventListener('click', startAutoCapture);
+  autoCaptureStopBtn.addEventListener('click', stopAutoCapture);
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (changes.autoCaptureStatus) renderAutoCaptureStatus(changes.autoCaptureStatus.newValue);
+    if (changes.facebookGroupCaptureDraft && changes.facebookGroupCaptureDraft.newValue) {
+      applyDraftFromStorage(changes.facebookGroupCaptureDraft.newValue);
+    }
+  });
+  chrome.storage.local.get(['autoCaptureStatus']).then(({ autoCaptureStatus: status }) => {
+    renderAutoCaptureStatus(status);
+    if (!status || !status.running || status.tab_id === undefined) return;
+    // A refreshed or closed tab never reports "done"; ask the tab directly.
+    chrome.tabs.sendMessage(status.tab_id, { action: 'autoCaptureState' }, (state) => {
+      if (chrome.runtime.lastError || !state || !state.running) {
+        chrome.storage.local.set({ autoCaptureStatus: { ...status, running: false, finished_at: new Date().toISOString(), reason: 'interrupted' } });
+      }
+    });
+  });
 
   document.getElementById('cloudSettingsBtn').addEventListener('click', () => chrome.runtime.openOptionsPage());
   document.getElementById('savePropertyBtn').addEventListener('click', saveProperty);

@@ -40,7 +40,7 @@
     "text": {"type": "string", "maxLength": 10000},
     "visibility": {"type": "string", "enum": ["public", "private", "unknown"]},
     "text_complete": {"type": "boolean"},
-    "capture_method": {"type": "string", "enum": ["chrome_extension_visible_tab", "manual_browser_export", "playwright_visible_tab"]},
+    "capture_method": {"type": "string", "enum": ["chrome_extension_visible_tab", "chrome_extension_auto_scroll", "manual_browser_export", "playwright_visible_tab"]},
     "source_channel": {"type": "string", "const": "facebook_group"},
     "source_platform": {"type": "string", "const": "facebook"},
     "contact_name": {"type": "string"},

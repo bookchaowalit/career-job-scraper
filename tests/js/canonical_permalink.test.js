@@ -37,7 +37,8 @@ test('background keeps every post the extractor accepts, incl. /story/<id>', () 
   const source = fs.readFileSync(path.join(ROOT, 'chrome-extension/background.js'), 'utf8');
   const fns = ['canonicalFacebookPostUrl', 'normaliseFacebookGroupUrl', 'normaliseBoolean', 'sanitiseFacebookGroupPost']
     .map((name) => extractFunction('chrome-extension/background.js', name)).join('\n');
-  const sanitise = vm.runInNewContext(`${fns}; sanitiseFacebookGroupPost`, { URL, URLSearchParams });
+  const methods = source.match(/const FACEBOOK_CAPTURE_METHODS = [^;]+;/)[0];
+  const sanitise = vm.runInNewContext(`${methods}\n${fns}; sanitiseFacebookGroupPost`, { URL, URLSearchParams });
   ['https://www.facebook.com/story/123', 'https://www.facebook.com/groups/condo/permalink/5/?__tn__=x'].forEach((url) => {
     const clean = sanitise({ group_url: 'https://facebook.com/groups/condo', post_url: url });
     assert.ok(clean, url);

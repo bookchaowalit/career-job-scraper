@@ -300,9 +300,10 @@
 
   <div id="facebookGroupArea" class="facebook-group-panel">
     <div class="facebook-group-note">
-      อ่านเฉพาะโพสต์ที่แสดงอยู่บนแท็บ Facebook ปัจจุบัน ไม่มีการ scroll อัตโนมัติ,
-      เรียก API, อ่าน cookie หรือเปิดโพสต์อื่น หลังเลื่อนหน้าเองให้กด
-      <strong>Capture next rendered page</strong> เพื่อรวมโพสต์รอบถัดไป
+      อ่านเฉพาะโพสต์ที่แสดงอยู่บนแท็บ Facebook ปัจจุบัน ไม่เรียก API, อ่าน cookie
+      หรือเปิดโพสต์อื่น เลื่อนหน้าเองแล้วกด <strong>Capture next rendered page</strong>
+      หรือกด <strong>Auto-scroll capture</strong> ให้เลื่อนและเก็บเองในแท็บนี้
+      (สูงสุด 40 โพสต์ / 5 นาที กด Stop ได้ตลอด)
       ถ้าป๊อปอัปปิดตอนกลับไปเลื่อนหน้า ข้อมูลร่างจะเก็บไว้ในเครื่องจนกด
       Clear capture ใช้กับกลุ่ม/ข้อมูลที่คุณมีสิทธิ์เก็บเท่านั้น
     </div>
@@ -318,6 +319,9 @@
       </select>
     </div>
     <button id="captureNextFacebookGroupPageBtn" class="btn btn-facebook-group-next" type="button">↻ Capture next rendered page</button>
+    <button id="autoCaptureBtn" class="btn btn-facebook-group-next" type="button">🤖 Auto-scroll capture</button>
+    <button id="autoCaptureStopBtn" class="btn btn-secondary" type="button" style="display:none">⏹ Stop auto-scroll</button>
+    <div id="autoCaptureStatus" class="status" style="display:none"></div>
     <div id="facebookGroupPosts" class="group-post-list" aria-live="polite"></div>
     <button id="saveFacebookGroupPostsBtn" class="btn btn-primary" disabled>💾 Save selected group posts</button>
     <button id="exportFacebookGroupCaptureBtn" class="btn btn-secondary" type="button">⬇️ Export current capture CSV</button>

@@ -34,7 +34,12 @@ VISIBILITY_VALUES = {"public", "private", "unknown"}
 LEAD_REVIEW_VALUES = {"co_agent_candidate", "needs_human_review", "unqualified"}
 REVIEW_DECISIONS = {"pending", "approved", "rejected", "needs_more_evidence"}
 OUTREACH_STATUSES = {"not_contacted", "approved_to_contact", "contacted", "opt_out"}
-CAPTURE_METHODS = {"chrome_extension_visible_tab", "manual_browser_export", "playwright_visible_tab"}
+CAPTURE_METHODS = {
+    "chrome_extension_visible_tab",
+    "chrome_extension_auto_scroll",
+    "manual_browser_export",
+    "playwright_visible_tab",
+}
 REQUIRED_FIELDS = {
     "captured_at",
     "group_url",

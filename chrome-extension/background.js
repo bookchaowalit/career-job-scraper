@@ -100,6 +100,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  if (request.action === 'writeCaptureDraft') {
+    recordAutoCapture(request, sender).then(() => sendResponse({ ok: true }), () => sendResponse({ ok: false }));
+    return true;
+  }
+
+  if (request.action === 'autoCaptureBatch' || request.action === 'autoCaptureDone') {
+    recordAutoCapture(request, sender).then(() => sendResponse({ ok: true }), () => sendResponse({ ok: false }));
+    return true;
+  }
+
   return false;
 });
 
@@ -144,6 +154,115 @@ async function exportProperties(request, sendResponse) {
 }
 
 const FACEBOOK_GROUP_STORAGE_LIMIT = 500;
+const FACEBOOK_CAPTURE_METHODS = ['chrome_extension_visible_tab', 'chrome_extension_auto_scroll', 'manual_browser_export', 'playwright_visible_tab'];
+const AUTO_CAPTURE_STATUS_KEY = 'autoCaptureStatus';
+
+// Auto-scroll batches land in the same capture draft the popup keeps, so the
+// operator reviews them, confirms visibility, and saves as with a manual
+// capture.  Writes are serialised because batches can arrive back to back.
+let autoCaptureWrite = Promise.resolve();
+function recordAutoCapture(request, sender) {
+  const run = autoCaptureWrite.then(() => applyAutoCapture(request, sender));
+  // Keep the queue alive after a failure, but report it to the caller so a
+  // batch that was not stored is retried or ends the run.
+  autoCaptureWrite = run.catch((error) => {
+    console.warn('Auto-capture batch could not be stored', error);
+  });
+  return run;
+}
+
+function mergeDraftPosts(existing, incoming, groupUrl) {
+  const byUrl = new Map();
+  [...(existing || []), ...(incoming || [])].forEach((post) => {
+    const key = canonicalFacebookPostUrl(post && post.post_url);
+    if (!key) return;
+    const candidate = { ...post, post_url: key, group_url: groupUrl };
+    const current = byUrl.get(key);
+    if (!current || isBetterFacebookGroupPost(candidate, current)) byUrl.set(key, candidate);
+  });
+  return Array.from(byUrl.values()).slice(-FACEBOOK_GROUP_STORAGE_LIMIT);
+}
+
+// The popup's own draft writes go through the same queue, merging with any
+// posts auto-capture added meanwhile instead of overwriting them.
+async function writePopupDraft(request) {
+  const draft = request.draft || {};
+  if (!Array.isArray(draft.posts) || !draft.posts.length) {
+    await chrome.storage.local.remove(['facebookGroupCaptureDraft']);
+    return;
+  }
+  const groupUrl = normaliseFacebookGroupUrl(draft.group_url);
+  if (!groupUrl) return;
+  const { facebookGroupCaptureDraft: stored } = await chrome.storage.local.get(['facebookGroupCaptureDraft']);
+  const sameGroup = stored && stored.group_url === groupUrl && Array.isArray(stored.posts);
+  await chrome.storage.local.set({
+    facebookGroupCaptureDraft: {
+      ...draft,
+      group_url: groupUrl,
+      posts: mergeDraftPosts(sameGroup ? stored.posts : [], draft.posts, groupUrl),
+    },
+  });
+}
+
+async function applyAutoCapture(request, sender) {
+  if (request.action === 'writeCaptureDraft') {
+    await writePopupDraft(request);
+    return;
+  }
+  const group = request.group || {};
+  const groupUrl = normaliseFacebookGroupUrl(group.group_url);
+  const now = new Date().toISOString();
+  const stored = await chrome.storage.local.get(['facebookGroupCaptureDraft', AUTO_CAPTURE_STATUS_KEY]);
+  const status = stored[AUTO_CAPTURE_STATUS_KEY] || {};
+  // Only the run the popup started last may write; a leftover run (an older
+  // tab, or one superseded by a new start) is ignored.
+  if (status.run_id && request.runId !== status.run_id) return;
+
+  if (request.action === 'autoCaptureDone') {
+    await chrome.storage.local.set({
+      [AUTO_CAPTURE_STATUS_KEY]: {
+        ...status,
+        running: false,
+        finished_at: now,
+        reason: String(request.reason || ''),
+        error: String(request.error || '').slice(0, 200),
+        found: Number(request.found || 0),
+      },
+    });
+    return;
+  }
+
+  if (!groupUrl) return;
+  let draft = stored.facebookGroupCaptureDraft;
+  const draftTime = Date.parse(String(draft && draft.last_updated_at || ''));
+  const runStart = Date.parse(String(status.started_at || ''));
+  // A draft of another group made after this run started is the operator's
+  // newer capture: keep it and drop this batch.
+  if (draft && draft.group_url !== groupUrl && Number.isFinite(draftTime) && Number.isFinite(runStart) && draftTime > runStart) return;
+  // An older draft from another group is replaced; the operator chose to
+  // start a capture on this group.
+  if (!draft || draft.group_url !== groupUrl || !Array.isArray(draft.posts)) {
+    draft = { group_url: groupUrl, group_name: '', captured_at: now, capture_rounds: 0, visibility: 'unknown', posts: [] };
+  }
+  const posts = mergeDraftPosts(draft.posts, Array.isArray(request.posts) ? request.posts : [], groupUrl);
+  await chrome.storage.local.set({
+    facebookGroupCaptureDraft: {
+      ...draft,
+      group_name: String(group.group_name || draft.group_name || '').slice(0, 240),
+      capture_rounds: (Number(draft.capture_rounds) || 0) + 1,
+      last_updated_at: now,
+      posts,
+    },
+    [AUTO_CAPTURE_STATUS_KEY]: {
+      ...status,
+      running: true,
+      group_url: groupUrl,
+      tab_id: sender && sender.tab ? sender.tab.id : status.tab_id,
+      found: posts.length,
+      updated_at: now,
+    },
+  });
+}
 
 // One canonical form per post, shared with the Python importer and Code.gs:
 // https://facebook.com/groups/<g>/posts/<id> with no query (Facebook adds
@@ -235,7 +354,7 @@ function sanitiseFacebookGroupPost(post) {
     text: String(post.text || '').replace(/\s+/g, ' ').trim().slice(0, 10000),
     visibility,
     text_complete: normaliseBoolean(post.text_complete),
-    capture_method: ['chrome_extension_visible_tab', 'manual_browser_export', 'playwright_visible_tab'].includes(post.capture_method)
+    capture_method: FACEBOOK_CAPTURE_METHODS.includes(post.capture_method)
       ? post.capture_method : 'chrome_extension_visible_tab',
     source_channel: 'facebook_group',
     source_platform: 'facebook',

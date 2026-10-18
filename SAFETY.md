@@ -29,7 +29,16 @@ permission to collect data from a source that disallows the user's use.
 The Facebook Group lane applies the same local-only boundary at post level.
 The extension reads currently rendered `[role="article"]` nodes and their
 permalinks, lets the operator label `public`, `private`, or `unknown`, and
-never scrolls, calls a Facebook API, opens another post, or exports cookies.
+never calls a Facebook API, opens another post, or exports cookies.  Since 1.5.0
+it can also scroll, but only as an operator-started **Auto-scroll capture** in
+the Group tab the operator has open: one screen per step with a fixed 4 s wait
+(no randomised, human-mimicking timing), expanding visible "See more" controls,
+and stopping at 40 posts or 5 minutes by default (hard caps 200 / 15), after
+three steps with nothing new, at an already-saved post, on leaving the group,
+or on Stop.  There is no scheduler and no background tab.  Results land in the
+capture draft; visibility labelling, Save, and any Sheet send stay manual.
+Automated scrolling may still conflict with Facebook's terms and puts the
+operator's own account at risk; that is the operator's decision.
 `scripts/import_facebook_group_posts.py` recomputes post identity, extracts
 owner/co-agent evidence from supplied text, keeps public rows review-only, and
 quarantines private/unknown rows unless an explicit gate, retention deadline,
@@ -55,8 +64,9 @@ listed job boards.  Post URLs are canonicalised without Facebook's per-load
 The optional Google Sheet sink sends only `public`-labelled Group rows the
 operator saved or exported, to an Apps Script web app the operator deployed in
 their own Sheet, authenticated by a shared secret.  It does not change the
-capture boundary above: the extension still reads only what is rendered in the
-tab the operator opened and never scrolls.  The Sheet is a copy of personal
+capture boundary above: the extension reads only what is rendered in the tab
+the operator opened, scrolling only during an operator-started auto-scroll
+capture.  The Sheet is a copy of personal
 data (poster names, post text that may contain phone numbers), so the same
 purpose, retention, and deletion duties apply to it as to the local CSV.
 Exported CSV cells that start with `= + - @` get a leading `'` so spreadsheets

@@ -3,9 +3,18 @@
 
 (function() {
   // Injected on demand by the popup (and declared for job sites), so it can
-  // run twice in one page; register listeners and the button only once.
-  if (window.__quickSaverContentLoaded) return;
-  window.__quickSaverContentLoaded = true;
+  // run twice in one page; register listeners and the button only once.  A
+  // copy left behind by a reloaded extension has a dead runtime and does not
+  // answer the ping, so the fresh copy takes over.
+  let previousCopyAlive = false;
+  const onPong = () => { previousCopyAlive = true; };
+  window.addEventListener('quicksaver-pong', onPong);
+  window.dispatchEvent(new Event('quicksaver-ping'));
+  window.removeEventListener('quicksaver-pong', onPong);
+  if (previousCopyAlive) return;
+  window.addEventListener('quicksaver-ping', () => {
+    if (chrome.runtime && chrome.runtime.id) window.dispatchEvent(new Event('quicksaver-pong'));
+  });
 
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'extractJob') {
@@ -17,6 +26,13 @@
     } else if (request.action === 'extractFacebookGroupPosts') {
       const group = extractFacebookGroupPosts();
       sendResponse({ group });
+    } else if (request.action === 'autoCapture') {
+      sendResponse(startAutoCapture(request));
+    } else if (request.action === 'autoCaptureStop') {
+      autoCapture.stopRequested = true;
+      sendResponse({ ok: true, running: autoCapture.running });
+    } else if (request.action === 'autoCaptureState') {
+      sendResponse({ running: autoCapture.running, found: autoCapture.found });
     }
     return true; // async response
   });
@@ -187,9 +203,10 @@
     };
   }
 
-  // Facebook Group capture intentionally stays inside the rendered tab.  It
-  // reads only visible article text and links; it does not scroll, call an
-  // API, follow a post, inspect cookies, or make an outbound request.
+  // Facebook Group capture reads only rendered article text and links; it
+  // does not call an API, follow a post, inspect cookies, or make an outbound
+  // request.  Scrolling happens only in the operator-started, bounded
+  // auto-scroll capture further down.
   function extractFacebookGroupPosts() {
     const currentUrl = new URL(window.location.href);
     const host = currentUrl.hostname.toLowerCase().replace(/^www\./, '');
@@ -309,6 +326,152 @@
       });
     });
     return result;
+  }
+
+  // ---------------------------------------------------------------------
+  // Auto-scroll capture (operator-started, bounded).
+  //
+  // Started only from the popup on the Facebook Group tab the operator has
+  // open.  Each step expands visible "See more" controls, reads the rendered
+  // posts with extractFacebookGroupPosts, then scrolls one screen and waits a
+  // fixed AUTO_STEP_WAIT_MS for the feed to load.  It stops at maxPosts,
+  // maxMinutes, AUTO_IDLE_STEPS steps without a new post, a post already
+  // saved (knownPermalinks), leaving the group page, or the Stop button.
+  // Posts go to the popup's capture draft; nothing is saved or sent to the
+  // Sheet until the operator reviews the draft and presses Save.
+  const AUTO_STEP_WAIT_MS = 4000;
+  const AUTO_EXPAND_WAIT_MS = 600;
+  const AUTO_IDLE_STEPS = 3;
+  const AUTO_BATCH_EVERY = 3;
+  const SEE_MORE_LABEL = /^\s*(see more|ดูเพิ่มเติม|อ่านเพิ่มเติม|แสดงเพิ่มเติม)\s*$/i;
+  const autoCapture = { running: false, stopRequested: false, found: 0 };
+
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const currentGroupSlug = () => {
+    const match = window.location.pathname.match(/^\/groups\/([^/]+)/i);
+    return match ? match[1].toLowerCase() : '';
+  };
+  const clampNumber = (value, min, max, fallback) => {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.min(max, Math.max(min, Math.round(number))) : fallback;
+  };
+
+  function expandVisiblePosts() {
+    let clicked = 0;
+    document.querySelectorAll('[role="article"]').forEach((article) => {
+      if (clicked >= 15) return;
+      const control = Array.from(article.querySelectorAll('[role="button"]'))
+        .find((node) => SEE_MORE_LABEL.test(node.textContent || '') && node.getClientRects().length > 0);
+      if (control) {
+        control.click();
+        clicked += 1;
+      }
+    });
+    return clicked;
+  }
+
+  // Facebook fills a post's timestamp link (its permalink) only on hover.
+  function revealPermalinks() {
+    document.querySelectorAll('[role="article"] a[href="#"], [role="article"] a:not([href])').forEach((anchor) => {
+      anchor.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    });
+  }
+
+  function startAutoCapture(request) {
+    if (autoCapture.running) return { ok: false, error: 'already_running' };
+    const host = window.location.hostname.toLowerCase();
+    const onFacebook = host === 'facebook.com' || host.endsWith('.facebook.com');
+    if (!onFacebook || !currentGroupSlug()) return { ok: false, error: 'not_a_group_page' };
+    const options = {
+      maxPosts: clampNumber(request.maxPosts, 1, 200, 40),
+      maxMinutes: clampNumber(request.maxMinutes, 1, 15, 5),
+      known: new Set(Array.isArray(request.knownPermalinks) ? request.knownPermalinks : []),
+      runId: String(request.runId || ''),
+    };
+    autoCapture.running = true;
+    autoCapture.stopRequested = false;
+    autoCapture.found = 0;
+    runAutoCapture(options).catch((error) => {
+      chrome.runtime.sendMessage({ action: 'autoCaptureDone', runId: options.runId, reason: 'error', error: String(error && error.message || error), found: autoCapture.found });
+    }).finally(() => {
+      autoCapture.running = false;
+    });
+    return { ok: true, maxPosts: options.maxPosts, maxMinutes: options.maxMinutes };
+  }
+
+  async function runAutoCapture({ maxPosts, maxMinutes, known, runId }) {
+    const groupSlug = currentGroupSlug();
+    const deadline = Date.now() + maxMinutes * 60 * 1000;
+    const collected = new Map();
+    let pending = [];
+    let idleSteps = 0;
+    let step = 0;
+    let reason = 'no_new_posts';
+    let group = { group_url: '', group_name: '', visibility: 'unknown' };
+
+    // Returns false when background.js could not store the batch; the posts
+    // stay pending and the run stops instead of reporting them as captured.
+    const flush = async () => {
+      if (!pending.length) return true;
+      const batch = pending;
+      pending = [];
+      let response;
+      try {
+        response = await chrome.runtime.sendMessage({ action: 'autoCaptureBatch', runId, group, posts: batch });
+      } catch (error) {
+        response = { ok: false };
+      }
+      if (response && response.ok === false) {
+        pending = batch.concat(pending);
+        return false;
+      }
+      return true;
+    };
+
+    for (;;) {
+      if (autoCapture.stopRequested) { reason = 'stopped'; break; }
+      if (Date.now() >= deadline) { reason = 'time_limit'; break; }
+      // Facebook navigates in-page, so re-check the exact group after every
+      // wait; posts from another group must never join this run.
+      if (currentGroupSlug() !== groupSlug) { reason = 'left_group'; break; }
+
+      if (expandVisiblePosts()) await sleep(AUTO_EXPAND_WAIT_MS);
+      revealPermalinks();
+      await sleep(300);
+      if (currentGroupSlug() !== groupSlug) { reason = 'left_group'; break; }
+      if (autoCapture.stopRequested) { reason = 'stopped'; break; }
+
+      const result = extractFacebookGroupPosts();
+      group = { group_url: result.group_url, group_name: result.group_name, visibility: result.visibility };
+      let added = 0;
+      let reachedKnown = false;
+      result.posts.forEach((post) => {
+        post.capture_method = 'chrome_extension_auto_scroll';
+        if (known.has(post.post_url)) reachedKnown = true;
+        const current = collected.get(post.post_url);
+        if (!current && collected.size >= maxPosts) return;
+        if (!current) added += 1;
+        // Keep the fuller copy when a post is seen again after expanding.
+        if (!current || (post.text_complete && !current.text_complete) || post.text.length > current.text.length) {
+          collected.set(post.post_url, post);
+          pending.push(post);
+        }
+      });
+      autoCapture.found = collected.size;
+      step += 1;
+      idleSteps = added ? 0 : idleSteps + 1;
+      if (step % AUTO_BATCH_EVERY === 0 && !(await flush())) { reason = 'storage_failed'; break; }
+
+      if (collected.size >= maxPosts) { reason = 'max_posts'; break; }
+      if (reachedKnown) { reason = 'reached_saved_post'; break; }
+      if (idleSteps >= AUTO_IDLE_STEPS) { reason = 'no_new_posts'; break; }
+      if (autoCapture.stopRequested) { reason = 'stopped'; break; }
+
+      window.scrollBy({ top: Math.round(window.innerHeight * 0.85), behavior: 'smooth' });
+      await sleep(AUTO_STEP_WAIT_MS);
+    }
+    if (reason !== 'storage_failed' && !(await flush())) reason = 'storage_failed';
+    chrome.runtime.sendMessage({ action: 'autoCaptureDone', runId, reason, found: collected.size, group });
   }
 
   // Add floating save button to job pages

@@ -353,11 +353,17 @@ before any CRM or outreach handoff.
 The extension also has **Capture Facebook Group posts**.  Open the Group in a
 Chrome tab you are allowed to use, load the extension, click the button, and
 select only the rendered posts that have a permalink.  It reads the current
-DOM only; it does not scroll automatically, call Facebook APIs, open another
-post, read cookies, or send a request.  Confirm the Group visibility in the
-popup before saving.  The current pass intentionally captures the posts
-already rendered on screen; scroll yourself and use the popup's **Capture next
-rendered page** button for another page of results.
+DOM only; it does not call Facebook APIs, open another post, read cookies, or
+send a request.  Confirm the Group visibility in the popup before saving.  The
+button captures the posts already rendered on screen; scroll yourself and use
+**Capture next rendered page** for another page of results, or press
+**🤖 Auto-scroll capture** to let the extension scroll this tab for you: one
+screen every 4 s, expanding "See more", up to 40 posts or 5 minutes, stopping
+early when nothing new appears or it reaches a post you already saved.  **⏹
+Stop** ends it at any time.  Posts collect in the capture draft; review them,
+pick the visibility, and Save as usual.  Leave the tab in front while it runs
+(Chrome slows timers in background tabs).  Scrolling automatically may break
+Facebook's terms and risks the account you are logged in with.
 
 Export with **Export Facebook Group CSV**, then run the offline importer:
 
