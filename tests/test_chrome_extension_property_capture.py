@@ -9,7 +9,7 @@ EXTENSION = Path(__file__).parents[1] / "chrome-extension"
 class ChromeExtensionPropertyCaptureTests(unittest.TestCase):
     def test_manifest_declares_local_property_export_capability(self):
         manifest = json.loads((EXTENSION / "manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["version"], "1.1.0")
+        self.assertEqual(manifest["version"], "1.2.0")
         self.assertIn("downloads", manifest["permissions"])
         self.assertIn("property", manifest["description"].lower())
 

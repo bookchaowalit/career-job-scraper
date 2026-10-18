@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>Quick Saver — Cloud storage</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    main { max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    h2 { font-size: 16px; margin: 0; }
+    p { margin: 6px 0; color: #94a3b8; }
+    code {
+      background: #1e293b;
+      border-radius: 4px;
+      padding: 1px 6px;
+      word-break: break-all;
+      color: #e2e8f0;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+    .card-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .card-head label { margin-left: auto; }
+    label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+    input[type="text"] {
+      width: 100%;
+      margin-top: 8px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid #475569;
+      background: #0f172a;
+      color: #e2e8f0;
+      font: inherit;
+    }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+    button {
+      border: 0;
+      border-radius: 6px;
+      padding: 8px 14px;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      background: #334155;
+      color: #e2e8f0;
+    }
+    button.primary { background: #2563eb; color: #fff; }
+    .status { font-size: 13px; }
+    .ok { color: #4ade80; }
+    .err { color: #f87171; }
+    details { margin-top: 10px; color: #94a3b8; }
+    details ol { margin: 6px 0 0; padding-left: 20px; }
+    .redirect { margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>☁️ Cloud storage</h1>
+    <p>อัปโหลด CSV ที่ export ขึ้นที่เก็บไฟล์ของคุณเองโดยอัตโนมัติ ไฟล์ยังดาวน์โหลดลงเครื่องเหมือนเดิม
+       ส่งขึ้นไปเฉพาะ CSV ที่ export เท่านั้น ไม่มี cookie หรือข้อมูลหน้าเว็บ</p>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>ทั่วไป</h2>
+        <label><input type="checkbox" id="autoUpload"> อัปโหลดทุกครั้งที่ export</label>
+      </div>
+      <p>ชื่อโฟลเดอร์ปลายทาง (ใช้ / แยกโฟลเดอร์ย่อยได้)</p>
+      <input type="text" id="folder" placeholder="Quick Saver">
+      <div class="redirect">
+        <p>Redirect URI สำหรับลงทะเบียน OAuth app ทุกเจ้า:</p>
+        <code id="redirectUri"></code>
+      </div>
+    </section>
+
+    <section class="card" data-provider="gdrive">
+      <div class="card-head">
+        <h2>Google Drive</h2>
+        <label><input type="checkbox" class="enabled"> เปิดใช้</label>
+      </div>
+      <input type="text" class="client-id" placeholder="OAuth Client ID (….apps.googleusercontent.com)">
+      <div class="row">
+        <button type="button" class="connect">เชื่อมต่อ</button>
+        <span class="status"></span>
+      </div>
+      <details>
+        <summary>วิธีสร้าง Client ID</summary>
+        <ol>
+          <li>Google Cloud Console → เปิด Google Drive API</li>
+          <li>OAuth consent screen → External, เพิ่มอีเมลตัวเองเป็น test user</li>
+          <li>Credentials → Create OAuth client ID → <b>Web application</b></li>
+          <li>Authorized redirect URIs → วาง Redirect URI ด้านบน</li>
+        </ol>
+        <p>ใช้สิทธิ์ <code>drive.file</code>: extension เห็นเฉพาะไฟล์ที่ตัวเองสร้าง</p>
+      </details>
+    </section>
+
+    <section class="card" data-provider="dropbox">
+      <div class="card-head">
+        <h2>Dropbox</h2>
+        <label><input type="checkbox" class="enabled"> เปิดใช้</label>
+      </div>
+      <input type="text" class="client-id" placeholder="App key">
+      <div class="row">
+        <button type="button" class="connect">เชื่อมต่อ</button>
+        <span class="status"></span>
+      </div>
+      <details>
+        <summary>วิธีสร้าง App key</summary>
+        <ol>
+          <li>dropbox.com/developers/apps → Create app → Scoped access → <b>App folder</b></li>
+          <li>Permissions → เปิด <code>files.content.write</code> แล้วกด Submit</li>
+          <li>Settings → OAuth 2 Redirect URIs → วาง Redirect URI ด้านบน</li>
+          <li>คัดลอก App key มาวาง (ไม่ต้องใช้ App secret)</li>
+        </ol>
+      </details>
+    </section>
+
+    <section class="card" data-provider="onedrive">
+      <div class="card-head">
+        <h2>OneDrive</h2>
+        <label><input type="checkbox" class="enabled"> เปิดใช้</label>
+      </div>
+      <input type="text" class="client-id" placeholder="Application (client) ID">
+      <div class="row">
+        <button type="button" class="connect">เชื่อมต่อ</button>
+        <span class="status"></span>
+      </div>
+      <details>
+        <summary>วิธีสร้าง Client ID</summary>
+        <ol>
+          <li>portal.azure.com → App registrations → New registration</li>
+          <li>Supported account types → รวม personal Microsoft accounts</li>
+          <li>Redirect URI → platform <b>Web</b> → วาง Redirect URI ด้านบน</li>
+          <li>Authentication → เปิด <b>Access tokens (implicit flow)</b></li>
+          <li>API permissions → Microsoft Graph → <code>Files.ReadWrite.AppFolder</code></li>
+        </ol>
+        <p>ไฟล์จะอยู่ใน OneDrive → Apps → ชื่อ app ที่ลงทะเบียน</p>
+      </details>
+    </section>
+
+    <div class="row">
+      <button type="button" id="save" class="primary">บันทึก</button>
+      <span id="saveStatus" class="status"></span>
+    </div>
+
+    <section class="card">
+      <h2>อัปโหลดล่าสุด</h2>
+      <div id="lastUpload"><p>ยังไม่มี</p></div>
+    </section>
+  </main>
+  <script src="cloud.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

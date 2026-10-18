@@ -1,9 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Quick Saver — Jobs & Property Leads",
-  "version": "1.1.0",
-  "description": "Save jobs, user-selected public property rows, or Facebook Group posts for the Solo Empire review pipeline.",
-  "permissions": ["activeTab", "storage", "contextMenus", "downloads"],
+  "version": "1.2.0",
+  "description": "Save jobs, property rows, or Facebook Group posts for review; optional upload to your Google Drive, Dropbox or OneDrive.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtk86BqP1gfwWLgK6yrN8a+1R4VZrYJ+P3/jt6yGbnZ8umHUkvuX11LkhChousJ9oigH5iUwwyO72i8ZIWWEENt8xn7Yuky5zjfF7MSi4b0EDu79UmW3QpebAZhtl6M+ed54TE2AZ6wP+eXpWKnOWshUVQIS/1peXqoJm0tqa7AW8ALZtFWolruincnFnD87pRZDXGdSOllMakA6fo6uSsdSAfUM3iOVWV8MiZmZ0UmcBuztcc4rSd+6oMbJFmKoNzHGdsZZOlkh4Eii7sszgmllmqhjyVnjb7A1pEhj6/So/LUwZR8AkeYRzvqVNHx+lTYpY7YV8WZDJeU50Sm/09QIDAQAB",
+  "permissions": ["activeTab", "storage", "contextMenus", "downloads", "identity"],
   "host_permissions": [
     "https://*.linkedin.com/*",
     "https://*.indeed.com/*",
@@ -16,6 +17,10 @@
     "https://*.dice.com/*",
     "https://*.jobthai.com/*",
     "https://*.jobsdb.com/*",
+    "https://www.googleapis.com/*",
+    "https://api.dropboxapi.com/*",
+    "https://content.dropboxapi.com/*",
+    "https://graph.microsoft.com/*",
     "<all_urls>"
   ],
   "action": {
@@ -25,6 +30,10 @@
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     }
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
   },
   "content_scripts": [
     {

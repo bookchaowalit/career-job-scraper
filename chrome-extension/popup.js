@@ -220,13 +220,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // One line per enabled cloud provider, appended to the export status.
+  function describeUploads(uploads) {
+    if (!Array.isArray(uploads) || !uploads.length) return '';
+    return uploads.map((upload) => (upload.ok
+      ? ` · ☁️ ${upload.label}: อัปโหลดแล้ว`
+      : ` · ⚠️ ${upload.label}: อัปโหลดไม่สำเร็จ (${upload.error})`)).join('');
+  }
+
   function exportProperties() {
     chrome.runtime.sendMessage({ action: 'exportProperties' }, (response) => {
       if (chrome.runtime.lastError || !response || !response.ok) {
         propertyStatus.innerHTML = '<p>ยังไม่มีแถว property ให้ export</p>';
         return;
       }
-      propertyStatus.innerHTML = `<p>⬇️ ดาวน์โหลด CSV แล้ว ${response.count} แถว — นำเข้าโดย scripts/import_property_leads.py</p>`;
+      const message = document.createElement('p');
+      message.textContent = `⬇️ ดาวน์โหลด CSV แล้ว ${response.count} แถว — นำเข้าโดย scripts/import_property_leads.py${describeUploads(response.uploads)}`;
+      propertyStatus.replaceChildren(message);
     });
   }
 
@@ -467,7 +477,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         facebookGroupStatus.textContent = 'export capture ไม่สำเร็จ โปรดลองโหลด extension ใหม่';
         return;
       }
-      facebookGroupStatus.textContent = `⬇️ ดาวน์โหลด capture ปัจจุบันแล้ว ${response.count} แถว — ยังไม่ล้าง draft`;
+      facebookGroupStatus.textContent = `⬇️ ดาวน์โหลด capture ปัจจุบันแล้ว ${response.count} แถว — ยังไม่ล้าง draft${describeUploads(response.uploads)}`;
     });
   }
 
@@ -477,7 +487,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         facebookGroupStatus.textContent = 'ยังไม่มีโพสต์ที่บันทึกไว้ ให้เลือกและ Save ก่อน export';
         return;
       }
-      facebookGroupStatus.textContent = `⬇️ ดาวน์โหลด CSV แล้ว ${response.count} แถว — นำเข้าโดย scripts/import_facebook_group_posts.py`;
+      facebookGroupStatus.textContent = `⬇️ ดาวน์โหลด CSV แล้ว ${response.count} แถว — นำเข้าโดย scripts/import_facebook_group_posts.py${describeUploads(response.uploads)}`;
     });
   }
 
@@ -490,6 +500,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderFacebookGroupPosts();
   }
 
+  document.getElementById('cloudSettingsBtn').addEventListener('click', () => chrome.runtime.openOptionsPage());
   document.getElementById('savePropertyBtn').addEventListener('click', saveProperty);
   document.getElementById('exportPropertiesBtn').addEventListener('click', exportProperties);
   saveFacebookGroupPostsBtn.addEventListener('click', saveFacebookGroupPosts);

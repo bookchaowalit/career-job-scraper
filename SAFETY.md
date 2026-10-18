@@ -37,6 +37,15 @@ and terms-basis reference are present.  `contact_public` is derived from the
 operator's visibility label and cannot be asserted by input data.  The
 `facebook.group-post.v1` snapshot is not a CRM or outreach permission.
 
+The extension's optional cloud upload (off by default, see README) sends only
+the CSV the operator just exported to a storage account the operator signed
+into: Google Drive (`drive.file`), Dropbox (app folder), or OneDrive (app
+folder).  It never sends cookies, page HTML, or anything to Facebook, and
+access tokens stay in memory-only session storage.  An uploaded copy is still
+subject to the same visibility, retention, and terms-basis rules as the local
+file: private or `unknown` Group rows must not be uploaded to a shared folder,
+and deleting a capture means deleting the cloud copy too.
+
 The opt-in `scripts/scrape_facebook_group_background.py` is a local Playwright
 alternative for an operator who does not want the extension.  It requires a
 dedicated profile directory outside the repository, never uses the default

@@ -1,5 +1,8 @@
 // Quick Job Saver — Background Service Worker
 
+importScripts('cloud.js');
+const cloud = self.QuickSaverCloud.createCloud({ chrome, fetch: (...args) => fetch(...args) });
+
 // Create context menu on install
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -125,8 +128,9 @@ async function exportProperties(request, sendResponse) {
       sendResponse({ ok: false, count: 0 });
       return;
     }
-    const count = await exportPropertiesToCSV(savedProperties);
-    sendResponse({ ok: true, count });
+    const { count, csv } = await exportPropertiesToCSV(savedProperties);
+    const uploads = await cloud.uploadExport('property_owner_coagent_export.csv', csv);
+    sendResponse({ ok: true, count, uploads });
   } catch (error) {
     console.warn('Property capture could not be exported', error);
     sendResponse({ ok: false, count: 0 });
@@ -265,14 +269,18 @@ async function exportFacebookGroupPosts(request, sendResponse) {
         export_kind: fromCapture ? 'current_capture' : 'saved_posts',
       },
     });
+    const filename = fromCapture ? 'facebook_group_current_capture.csv' : 'facebook_group_posts_export.csv';
     if (chrome.downloads && chrome.downloads.download) {
       await chrome.downloads.download({
         url: 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv),
-        filename: fromCapture ? 'facebook_group_current_capture.csv' : 'facebook_group_posts_export.csv',
+        filename,
         saveAs: true,
       });
     }
-    sendResponse({ ok: true, count: exportPosts.length });
+    // Optional: also upload to the operator's own cloud storage (off unless
+    // enabled in the options page).  Each provider reports its own result.
+    const uploads = await cloud.uploadExport(filename, csv);
+    sendResponse({ ok: true, count: exportPosts.length, uploads });
   } catch (error) {
     console.warn('Facebook Group capture could not be exported', error);
     sendResponse({ ok: false, count: 0 });
@@ -305,7 +313,8 @@ async function exportToCSV(jobs) {
 
 // Export a deliberately raw, user-selected property capture.  The Python
 // importer performs source allowlisting, owner/co-agent extraction,
-// deduplication, and property.v1 review defaults.  No network call is made.
+// deduplication, and property.v1 review defaults.  The only network call is
+// the optional cloud upload of this CSV, made by the caller (cloud.js).
 async function exportPropertiesToCSV(properties) {
   const header = 'title,url,location,price_raw,bedrooms,bathrooms,area_sqm,listing_type,description,captured_at,source\n';
   const rows = properties.map((property) => [
@@ -337,7 +346,7 @@ async function exportPropertiesToCSV(properties) {
       saveAs: true,
     });
   }
-  return properties.length;
+  return { count: properties.length, csv };
 }
 
 function escapeCsv(value) {

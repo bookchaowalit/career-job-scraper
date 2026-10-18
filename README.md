@@ -437,6 +437,42 @@ smoke test is available at
 `tests/fixtures/facebook_group_posts_export.csv`; it does not prove live
 Facebook access.
 
+### Upload exports to your own cloud storage (optional)
+
+The extension can also upload every CSV it exports (property rows, the current
+Facebook Group capture, and saved Group posts) to the operator's own Google
+Drive, Dropbox, or OneDrive.  It is off by default.  The local download still
+happens; the upload is in addition to it, and each provider reports its own
+result in the popup and on the options page.
+
+Setup, once per provider:
+
+1. Click ☁️ in the popup to open the options page and copy the **Redirect
+   URI**.  It is the same on every machine,
+   `https://gbipaflofmmmglinopjefeffngikmggb.chromiumapp.org/`, because the
+   manifest pins the extension ID with a public `key`.
+2. Register an OAuth app with that redirect URI and paste its client ID.  The
+   options page lists the clicks for each provider.  No client secret is used.
+   - Google Drive: *Web application* client, scope `drive.file` (the extension
+     only sees files it created).
+   - Dropbox: *App folder* app with `files.content.write`; PKCE, no secret.
+   - OneDrive: app registration with *Access tokens (implicit flow)* and
+     `Files.ReadWrite.AppFolder` (files land in `Apps/<app name>/`).
+3. Tick **เปิดใช้**, click **เชื่อมต่อ** to sign in, tick **อัปโหลดทุกครั้งที่
+   export**, and save.
+
+**Upgrading from 1.1.0:** version 1.2.0 pins the extension ID, so Chrome
+treats it as a new extension and its storage starts empty.  Before loading
+1.2.0, open the old popup and export anything you still need (property CSV,
+Facebook Group CSV), then remove the old extension.
+
+Files are named `<export name>_<UTC timestamp>.csv` inside the chosen folder
+(default `Quick Saver`), so repeated exports never overwrite each other.
+Access tokens live only in `chrome.storage.session` and are dropped when Chrome
+closes; the next export asks the provider again (usually without a prompt).
+The private key behind the manifest `key` is kept outside the repository at
+`~/.config/quick-saver/extension-key.pem`; it is only needed to pack a `.crx`.
+
 ### Background capture without the extension (opt-in)
 
 Use `scripts/scrape_facebook_group_background.py` when you want a local
