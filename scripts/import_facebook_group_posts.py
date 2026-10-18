@@ -150,12 +150,19 @@ def _utc_now() -> str:
     )
 
 
+def _unguard_formula(value: str) -> str:
+    """Undo the extension's spreadsheet formula guard (one leading quote)."""
+    if len(value) >= 2 and value[0] == "'" and value[1] in "=+-@\t\r":
+        return value[1:]
+    return value
+
+
 def _scalar(value: Any) -> str:
     if value is None:
         return ""
     if isinstance(value, (dict, list, tuple)):
         return json.dumps(value, ensure_ascii=False, sort_keys=True)
-    return str(value)
+    return _unguard_formula(str(value))
 
 
 def _bounded_text(value: Any, limit: int = MAX_TEXT_LENGTH) -> str:

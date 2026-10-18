@@ -248,20 +248,33 @@
     const seen = new Set();
     articles.forEach((article) => {
       const anchors = Array.from(article.querySelectorAll('a[href]'));
-      const link = anchors.map((anchor) => cleanFacebookUrl(anchor.href)).find((href) => {
+      const isPermalink = (href) => {
         if (!href) return false;
         const path = new URL(href).pathname;
         return /\/groups\/[^/]+\/(?:posts|permalink)\/[^/]+/i.test(path) || /\/(?:permalink|story)\.php$/i.test(path) || /\/(?:posts|permalink)\/[^/]+/i.test(path);
-      });
+      };
+      const permalinkAnchor = anchors.find((anchor) => isPermalink(cleanFacebookUrl(anchor.href)));
+      const link = permalinkAnchor ? cleanFacebookUrl(permalinkAnchor.href) : '';
       if (!link || seen.has(link)) return;
       seen.add(link);
 
       const articleText = ((article.innerText || article.textContent || '') || '').replace(/\s+/g, ' ').trim().slice(0, 10000);
       if (!articleText) return;
       const time = article.querySelector('time, abbr[title], [data-utime]');
-      const authorCandidate = article.querySelector('h2 a, h3 a, [data-ad-rendering-role="profile_name"], a[role="link"]');
+      // Poster: Facebook's profile-name slot first, then the post header.  A
+      // generic a[role="link"] is not used: it often matched a commenter, a
+      // reaction list, or the group itself.
+      const authorCandidate = article.querySelector('[data-ad-rendering-role="profile_name"] a')
+        || article.querySelector('h2 a, h3 a')
+        || article.querySelector('[data-ad-rendering-role="profile_name"]');
       const author = ((authorCandidate && authorCandidate.textContent) || '').replace(/\s+/g, ' ').trim().slice(0, 160);
-      const postedAt = time ? (time.getAttribute('datetime') || time.getAttribute('title') || time.getAttribute('aria-label') || time.textContent || '').trim().slice(0, 80) : '';
+      // Without <time>, the permalink anchor is the timestamp: its aria-label
+      // or tooltip holds the date ("18 October at 09:12"), its text a relative
+      // time ("2h").
+      const timeSource = time || permalinkAnchor;
+      const postedAt = timeSource
+        ? (timeSource.getAttribute('datetime') || timeSource.getAttribute('aria-label') || timeSource.getAttribute('title') || timeSource.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80)
+        : '';
       result.posts.push({
         group_url: result.group_url,
         group_name: result.group_name,

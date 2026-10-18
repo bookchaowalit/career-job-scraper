@@ -44,7 +44,7 @@ class ChromeExtensionCloudUploadTests(unittest.TestCase):
 
     def test_background_uploads_every_csv_export(self):
         background = (EXTENSION / "background.js").read_text(encoding="utf-8")
-        self.assertIn("importScripts('cloud.js')", background)
+        self.assertIn("importScripts('cloud.js', 'sheet.js')", background)
         self.assertEqual(background.count("cloud.uploadExport("), 2)
 
     @unittest.skipUnless(shutil.which("node"), "node is not installed")
@@ -59,4 +59,24 @@ class ChromeExtensionCloudUploadTests(unittest.TestCase):
         )
         self.assertEqual(
             result.returncode, 0, result.stdout[-4000:] + result.stderr[-2000:]
+        )
+
+
+class CsvFormulaGuardRoundTripTests(unittest.TestCase):
+    def test_importers_strip_the_extension_formula_guard(self):
+        from scripts import import_facebook_group_posts, import_property_leads
+
+        for module in (import_facebook_group_posts, import_property_leads):
+            self.assertEqual(module._scalar("'-ขายด่วน"), "-ขายด่วน")
+            self.assertEqual(module._scalar("'=1+1"), "=1+1")
+            self.assertEqual(module._scalar("'+66 81"), "+66 81")
+            # A quote that the guard did not add is kept.
+            self.assertEqual(module._scalar("'quoted'"), "'quoted'")
+
+    def test_manifest_allows_the_apps_script_hosts(self):
+        manifest = json.loads((EXTENSION / "manifest.json").read_text(encoding="utf-8"))
+        self.assertIn("notifications", manifest["permissions"])
+        self.assertIn("https://script.google.com/*", manifest["host_permissions"])
+        self.assertIn(
+            "https://script.googleusercontent.com/*", manifest["host_permissions"]
         )

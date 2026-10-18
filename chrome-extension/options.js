@@ -3,6 +3,11 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const { createCloud, PROVIDERS, LAST_UPLOAD_KEY } = self.QuickSaverCloud;
   const cloud = createCloud({ chrome, fetch: (...args) => fetch(...args) });
+  const sheet = self.QuickSaverSheet.createSheet({ chrome, fetch: (...args) => fetch(...args) });
+  const sheetEnabled = document.getElementById('sheetEnabled');
+  const sheetUrl = document.getElementById('sheetUrl');
+  const sheetSecret = document.getElementById('sheetSecret');
+  const sheetStatus = document.getElementById('sheetStatus');
 
   const autoUpload = document.getElementById('autoUpload');
   const folder = document.getElementById('folder');
@@ -62,17 +67,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     target.replaceChildren(...lines);
   }
 
+  function readSheetForm() {
+    return { enabled: sheetEnabled.checked, url: sheetUrl.value, secret: sheetSecret.value };
+  }
+
+  function fillSheetForm(settings) {
+    sheetEnabled.checked = settings.enabled;
+    sheetUrl.value = settings.url;
+    sheetSecret.value = settings.secret;
+  }
+
+  // Saves the Sheet card; returns a problem message or ''.
+  async function saveSheet() {
+    const typedUrl = sheetUrl.value.trim();
+    const saved = await sheet.saveSettings(readSheetForm());
+    fillSheetForm(saved);
+    if (typedUrl && !saved.url) return 'URL ต้องเป็น https://script.google.com/macros/s/…/exec';
+    if (saved.enabled && (!saved.url || !saved.secret)) return 'Sheet ยังขาด URL หรือ secret';
+    return '';
+  }
+
   fillForm(await cloud.loadSettings());
+  fillSheetForm(await sheet.loadSettings());
   renderLastUpload();
 
   document.getElementById('save').addEventListener('click', async () => {
     const saved = await cloud.saveSettings(readForm());
     fillForm(saved);
+    const sheetProblem = await saveSheet();
     const missing = Object.keys(saved.providers)
       .filter((id) => saved.providers[id].enabled && !saved.providers[id].clientId)
       .map((id) => PROVIDERS[id].label);
-    if (missing.length) {
-      setStatus(saveStatus, `บันทึกแล้ว แต่ยังไม่มี Client ID: ${missing.join(', ')}`, 'err');
+    const problems = [];
+    if (missing.length) problems.push(`ยังไม่มี Client ID: ${missing.join(', ')}`);
+    if (sheetProblem) problems.push(sheetProblem);
+    if (problems.length) {
+      setStatus(saveStatus, `บันทึกแล้ว แต่ ${problems.join(' · ')}`, 'err');
     } else {
       setStatus(saveStatus, 'บันทึกแล้ว', 'ok');
     }
@@ -93,6 +123,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         setStatus(status, message === 'missing_client_id' ? 'ใส่ Client ID ก่อน' : `เชื่อมต่อไม่สำเร็จ: ${message}`, 'err');
       }
     });
+  });
+
+  document.getElementById('sheetTest').addEventListener('click', async () => {
+    const problem = await saveSheet();
+    if (problem && problem.startsWith('URL')) {
+      setStatus(sheetStatus, problem, 'err');
+      return;
+    }
+    setStatus(sheetStatus, 'กำลังทดสอบ…');
+    const result = await sheet.testConnection();
+    if (result.ok) {
+      setStatus(sheetStatus, 'เชื่อมต่อได้ (ไม่ได้เขียนแถวใด)', 'ok');
+    } else {
+      setStatus(sheetStatus, result.error === 'sheet_not_configured' ? 'ใส่ URL และ secret ก่อน' : `เชื่อมต่อไม่สำเร็จ: ${result.error}`, 'err');
+    }
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {

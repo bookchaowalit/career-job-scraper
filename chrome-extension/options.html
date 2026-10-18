@@ -34,7 +34,7 @@
     .card-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .card-head label { margin-left: auto; }
     label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
-    input[type="text"] {
+    input[type="text"], input[type="password"] {
       width: 100%;
       margin-top: 8px;
       padding: 8px 10px;
@@ -149,6 +149,30 @@
       </details>
     </section>
 
+    <section class="card" id="sheetCard">
+      <div class="card-head">
+        <h2>Google Sheet (โพสต์ Facebook Group)</h2>
+        <label><input type="checkbox" id="sheetEnabled"> เปิดใช้</label>
+      </div>
+      <p>ส่งโพสต์ที่ Save หรือ Export จาก Facebook Group เข้าแท็บ <code>raw_posts</code> ส่งเฉพาะกลุ่มที่เลือกว่า Public เท่านั้น</p>
+      <input type="text" id="sheetUrl" placeholder="https://script.google.com/macros/s/…/exec">
+      <input type="password" id="sheetSecret" placeholder="Shared secret (ค่าเดียวกับ SECRET ใน Script properties)" autocomplete="off">
+      <div class="row">
+        <button type="button" id="sheetTest">ทดสอบการเชื่อมต่อ</button>
+        <span class="status" id="sheetStatus"></span>
+      </div>
+      <details>
+        <summary>วิธีติดตั้ง Apps Script</summary>
+        <ol>
+          <li>เปิด Google Sheet ปลายทาง → Extensions → Apps Script</li>
+          <li>วางโค้ดจาก <code>integrations/google-sheet/Code.gs</code> ใน repo</li>
+          <li>Project Settings → Script properties → เพิ่ม <code>SECRET</code> เป็นค่าสุ่มยาวๆ และ <code>SPREADSHEET_ID</code> (id ใน URL ของ Sheet)</li>
+          <li>Deploy → New deployment → Web app · Execute as: Me · Who has access: Anyone</li>
+          <li>คัดลอก URL ที่ลงท้ายด้วย <code>/exec</code> มาวางด้านบน พร้อม secret เดียวกัน</li>
+        </ol>
+      </details>
+    </section>
+
     <div class="row">
       <button type="button" id="save" class="primary">บันทึก</button>
       <span id="saveStatus" class="status"></span>
@@ -160,6 +184,7 @@
     </section>
   </main>
   <script src="cloud.js"></script>
+  <script src="sheet.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

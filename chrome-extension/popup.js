@@ -220,6 +220,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // Google Sheet result, appended to the save/export status.
+  function describeSheet(result) {
+    if (!result) return '';
+    const skipped = result.skipped ? ` (ข้าม ${result.skipped} แถวที่ไม่ใช่ public)` : '';
+    if (result.ok) return ` · 📊 Sheet: เพิ่ม ${result.added} แถว${skipped}`;
+    return ` · ⚠️ Sheet: ส่งไม่สำเร็จ (${result.error}) เก็บไว้ส่งรอบหน้า ${result.pending} แถว`;
+  }
+
   // One line per enabled cloud provider, appended to the export status.
   function describeUploads(uploads) {
     if (!Array.isArray(uploads) || !uploads.length) return '';
@@ -437,7 +445,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       facebookGroupSuccess.style.display = 'block';
       facebookGroupSuccess.textContent = `✅ บันทึกโพสต์ในเครื่องแล้ว (${response.count} แถว)`;
-      facebookGroupStatus.textContent = 'ตรวจ CSV ที่ export แล้วนำเข้า scripts/import_facebook_group_posts.py';
+      facebookGroupStatus.textContent = `ตรวจ CSV ที่ export แล้วนำเข้า scripts/import_facebook_group_posts.py${describeSheet(response.sheet)}`;
       setTimeout(() => { facebookGroupSuccess.style.display = 'none'; }, 3000);
     });
   }
@@ -477,7 +485,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         facebookGroupStatus.textContent = 'export capture ไม่สำเร็จ โปรดลองโหลด extension ใหม่';
         return;
       }
-      facebookGroupStatus.textContent = `⬇️ ดาวน์โหลด capture ปัจจุบันแล้ว ${response.count} แถว — ยังไม่ล้าง draft${describeUploads(response.uploads)}`;
+      facebookGroupStatus.textContent = `⬇️ ดาวน์โหลด capture ปัจจุบันแล้ว ${response.count} แถว — ยังไม่ล้าง draft${describeUploads(response.uploads)}${describeSheet(response.sheet)}`;
     });
   }
 

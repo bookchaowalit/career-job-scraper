@@ -46,6 +46,16 @@ subject to the same visibility, retention, and terms-basis rules as the local
 file: private or `unknown` Group rows must not be uploaded to a shared folder,
 and deleting a capture means deleting the cloud copy too.
 
+The optional Google Sheet sink sends only `public`-labelled Group rows the
+operator saved or exported, to an Apps Script web app the operator deployed in
+their own Sheet, authenticated by a shared secret.  It does not change the
+capture boundary above: the extension still reads only what is rendered in the
+tab the operator opened and never scrolls.  The Sheet is a copy of personal
+data (poster names, post text that may contain phone numbers), so the same
+purpose, retention, and deletion duties apply to it as to the local CSV.
+Exported CSV cells that start with `= + - @` get a leading `'` so spreadsheets
+do not execute them; both importers strip that guard on read.
+
 The opt-in `scripts/scrape_facebook_group_background.py` is a local Playwright
 alternative for an operator who does not want the extension.  It requires a
 dedicated profile directory outside the repository, never uses the default

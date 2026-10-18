@@ -1,7 +1,8 @@
 // Quick Job Saver — Background Service Worker
 
-importScripts('cloud.js');
+importScripts('cloud.js', 'sheet.js');
 const cloud = self.QuickSaverCloud.createCloud({ chrome, fetch: (...args) => fetch(...args) });
+const sheet = self.QuickSaverSheet.createSheet({ chrome, fetch: (...args) => fetch(...args) });
 
 // Create context menu on install
 chrome.runtime.onInstalled.addListener(() => {
@@ -212,15 +213,19 @@ async function saveFacebookGroupPostsLocally(posts, sendResponse) {
   try {
     const { savedFacebookGroupPosts = [] } = await chrome.storage.local.get(['savedFacebookGroupPosts']);
     const byUrl = new Map(savedFacebookGroupPosts.map((post) => [post.post_url, post]));
+    const cleaned = [];
     (Array.isArray(posts) ? posts : []).forEach((post) => {
       const clean = sanitiseFacebookGroupPost(post || {});
+      if (clean) cleaned.push(clean);
       if (clean && clean.post_url && (!byUrl.has(clean.post_url) || isBetterFacebookGroupPost(clean, byUrl.get(clean.post_url)))) {
         byUrl.set(clean.post_url, clean);
       }
     });
     const next = Array.from(byUrl.values()).slice(-FACEBOOK_GROUP_STORAGE_LIMIT);
     await chrome.storage.local.set({ savedFacebookGroupPosts: next });
-    sendResponse({ ok: true, count: next.length });
+    // Optional Google Sheet sink (off unless enabled; public rows only).
+    const sheetResult = await sheet.sendPosts(cleaned);
+    sendResponse({ ok: true, count: next.length, sheet: sheetResult });
   } catch (error) {
     console.warn('Facebook Group capture could not be saved locally', error);
     sendResponse({ ok: false, count: 0 });
@@ -280,7 +285,10 @@ async function exportFacebookGroupPosts(request, sendResponse) {
     // Optional: also upload to the operator's own cloud storage (off unless
     // enabled in the options page).  Each provider reports its own result.
     const uploads = await cloud.uploadExport(filename, csv);
-    sendResponse({ ok: true, count: exportPosts.length, uploads });
+    // The current capture may never be saved, so send it to the Sheet here;
+    // saved posts were already sent when they were saved.
+    const sheetResult = fromCapture ? await sheet.sendPosts(exportPosts) : null;
+    sendResponse({ ok: true, count: exportPosts.length, uploads, sheet: sheetResult });
   } catch (error) {
     console.warn('Facebook Group capture could not be exported', error);
     sendResponse({ ok: false, count: 0 });
@@ -350,9 +358,13 @@ async function exportPropertiesToCSV(properties) {
 }
 
 function escapeCsv(value) {
-  if (!value) return '';
-  const str = String(value);
-  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+  if (value === null || value === undefined || value === '') return '';
+  let str = String(value);
+  // Spreadsheet formula guard: a cell starting with = + - @ (or a tab/CR)
+  // would run as a formula when the CSV is opened in Excel or Sheets.  The
+  // Python importers strip this single leading quote again.
+  if (/^[=+\-@\t\r]/.test(str)) str = `'${str}`;
+  if (/[",\r\n]/.test(str)) {
     return `"${str.replace(/"/g, '""')}"`;
   }
   return str;

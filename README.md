@@ -473,6 +473,31 @@ closes; the next export asks the provider again (usually without a prompt).
 The private key behind the manifest `key` is kept outside the repository at
 `~/.config/quick-saver/extension-key.pem`; it is only needed to pack a `.crx`.
 
+### Send Facebook Group posts to a Google Sheet (optional)
+
+Posts you **Save** (and the current capture when you **Export current capture
+CSV**) can also be appended to a Google Sheet tab `raw_posts`.  Off by default.
+Only rows from a group you labelled **Public** are sent; private and unknown
+rows stay in the browser, the same rule the importer applies.
+
+1. Open the target Sheet → Extensions → Apps Script, paste
+   [`integrations/google-sheet/Code.gs`](integrations/google-sheet/Code.gs).
+2. Project Settings → Script properties → add `SECRET` with a long random value
+   and `SPREADSHEET_ID` (the id in the Sheet URL, `/spreadsheets/d/<id>/edit`).
+3. Deploy → New deployment → Web app, *Execute as: Me*, *Who has access:
+   Anyone*.  Copy the `/exec` URL.
+4. In the extension's ☁️ options page, paste the URL and the same secret, tick
+   **เปิดใช้**, click **ทดสอบการเชื่อมต่อ** (sends an empty batch), then save.
+
+Columns: `collected_at` (ISO, Asia/Bangkok), `group_name`, `group_url`,
+`permalink`, `poster`, `posted`, `text`, `text_complete`, `processed`.  The
+script deduplicates by permalink and stores cells that start with `= + - @` as
+text.  A failed send is retried once; undelivered rows (up to 2000 rows or
+about 4 MB) stay queued in the extension and go with the next save.  Re-saving a
+post as private or unknown withdraws it from that queue.  The web app is reachable by anyone
+who has the URL, so the secret is what protects it: keep both private and
+rotate the secret (Script properties + options page) if either leaks.
+
 ### Background capture without the extension (opt-in)
 
 Use `scripts/scrape_facebook_group_background.py` when you want a local
