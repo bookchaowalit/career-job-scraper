@@ -25,11 +25,10 @@ HEALTH_REPORT = DATA_DIR / "unified_health_report.json"
 
 # Telegram
 TELEGRAM_BOT_TOKEN = (
-    os.getenv("TELEGRAM_BOT_TOKEN", "")
-    or os.getenv("TELEGRAM_HEALTH_BOT_TOKEN", "")
-    or os.getenv("TELEGRAM_INFRA_BOT_TOKEN", "")
+    os.getenv("TELEGRAM_NOTI_BOT_TOKEN", "")
+    or os.getenv("TELEGRAM_BOT_TOKEN", "")
 )
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_NOTI_CHAT_ID", "") or os.getenv("TELEGRAM_CHAT_ID", "")
 
 
 def _truthy(value: str | None) -> bool:
@@ -185,9 +184,8 @@ def check_api_keys(required=None):
     candidates = {
         "OPENROUTER_API_KEY": [os.getenv("OPENROUTER_API_KEY", "")],
         "TELEGRAM_BOT_TOKEN": [
+            os.getenv("TELEGRAM_NOTI_BOT_TOKEN", ""),
             os.getenv("TELEGRAM_BOT_TOKEN", ""),
-            os.getenv("TELEGRAM_HEALTH_BOT_TOKEN", ""),
-            os.getenv("TELEGRAM_INFRA_BOT_TOKEN", ""),
         ],
     }
     results = {}
