@@ -2,7 +2,12 @@
 
 importScripts('cloud.js', 'sheet.js');
 const cloud = self.QuickSaverCloud.createCloud({ chrome, fetch: (...args) => fetch(...args) });
-const sheet = self.QuickSaverSheet.createSheet({ chrome, fetch: (...args) => fetch(...args) });
+const sheet = self.QuickSaverSheet.createSheet({
+  chrome,
+  fetch: (...args) => fetch(...args),
+  // Queued rows from before 1.4 carry __cft__ URLs; compare canonical forms.
+  canonical: (url) => canonicalFacebookPostUrl(url),
+});
 
 // Create context menu on install
 chrome.runtime.onInstalled.addListener(() => {
@@ -140,6 +145,36 @@ async function exportProperties(request, sendResponse) {
 
 const FACEBOOK_GROUP_STORAGE_LIMIT = 500;
 
+// One canonical form per post, shared with the Python importer and Code.gs:
+// https://facebook.com/groups/<g>/posts/<id> with no query (Facebook adds
+// per-load __cft__/__tn__ tokens), and permalink.php/story.php reduced to
+// story_fbid + id.  Without this the same post dedupes as a new row on every
+// page load.
+function canonicalFacebookPostUrl(value) {
+  let parsed;
+  try {
+    parsed = new URL(String(value || '').trim());
+  } catch (error) {
+    return '';
+  }
+  const host = parsed.hostname.toLowerCase().replace(/^(www|m|web)\./, '');
+  if (parsed.protocol !== 'https:' || (host !== 'facebook.com' && !host.endsWith('.facebook.com')) || parsed.username || parsed.password || parsed.port) return '';
+  const path = parsed.pathname.replace(/\/+$/, '');
+  const group = path.match(/^\/groups\/([^/]+)\/(?:posts|permalink)\/([^/]+)$/i);
+  if (group) return `https://facebook.com/groups/${group[1]}/posts/${group[2]}`;
+  if (/^\/(?:permalink|story)\.php$/i.test(path)) {
+    const keep = new URLSearchParams();
+    ['id', 'story_fbid'].forEach((key) => {
+      const found = parsed.searchParams.get(key);
+      if (found) keep.set(key, found);
+    });
+    if (!keep.get('story_fbid')) return '';
+    return `https://facebook.com${path.toLowerCase()}?${keep.toString()}`;
+  }
+  if (/^\/(?:posts|permalink|story)\/[^/]+$/i.test(path)) return `https://facebook.com${path}`;
+  return '';
+}
+
 function normaliseFacebookGroupUrl(value) {
   try {
     const parsed = new URL(String(value || '').trim());
@@ -185,10 +220,9 @@ function isBetterFacebookGroupPost(candidate, current) {
 
 function sanitiseFacebookGroupPost(post) {
   const groupUrl = normaliseFacebookGroupUrl(post.group_url);
-  const postUrl = normaliseFacebookGroupUrl(post.post_url);
+  // canonicalFacebookPostUrl is the single path rule (shared with content.js).
+  const postUrl = canonicalFacebookPostUrl(post.post_url);
   if (!groupUrl || !postUrl || !/^\/groups\/[^/]+$/i.test(new URL(groupUrl).pathname)) return null;
-  const postPath = new URL(postUrl).pathname;
-  if (!(/\/groups\/[^/]+\/(?:posts|permalink)\/[^/]+/i.test(postPath) || /\/(?:permalink|story)\.php$/i.test(postPath) || /\/(?:posts|permalink)\/[^/]+/i.test(postPath))) return null;
   const visibility = ['public', 'private', 'unknown'].includes(String(post.visibility || '').toLowerCase())
     ? String(post.visibility).toLowerCase() : 'unknown';
   return {
@@ -212,7 +246,15 @@ function sanitiseFacebookGroupPost(post) {
 async function saveFacebookGroupPostsLocally(posts, sendResponse) {
   try {
     const { savedFacebookGroupPosts = [] } = await chrome.storage.local.get(['savedFacebookGroupPosts']);
-    const byUrl = new Map(savedFacebookGroupPosts.map((post) => [post.post_url, post]));
+    // Re-sanitise stored posts so pre-1.4 rows (with __cft__ URLs) merge with
+    // their canonical recaptures instead of duplicating.
+    const byUrl = new Map();
+    savedFacebookGroupPosts.forEach((post) => {
+      const clean = sanitiseFacebookGroupPost(post || {});
+      if (clean && (!byUrl.has(clean.post_url) || isBetterFacebookGroupPost(clean, byUrl.get(clean.post_url)))) {
+        byUrl.set(clean.post_url, clean);
+      }
+    });
     const cleaned = [];
     (Array.isArray(posts) ? posts : []).forEach((post) => {
       const clean = sanitiseFacebookGroupPost(post || {});

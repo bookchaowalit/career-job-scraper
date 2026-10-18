@@ -180,3 +180,29 @@ test('a truncated recapture does not replace a complete queued copy', async () =
   await down.sendPosts([post(1, 'public', { text: 'full… See more', text_complete: false })]);
   assert.equal(chrome.data.sheetPendingRows[0].text, 'full text of the listing');
 });
+
+test('a pre-1.4 queued row (with __cft__) is withdrawn by its canonical private save', async () => {
+  const chrome = fakeChrome(ENABLED, {
+    sheetPendingRows: [{ permalink: 'https://facebook.com/groups/g/posts/1?__cft__[0]=old', text: 'x' }],
+  });
+  const canonical = (url) => url.split('?')[0];
+  const sent = [];
+  const sheet = sheetApi.createSheet({ chrome, canonical, fetch: async (u, o) => { sent.push(o); return reply(200, { ok: true, added: 0 }); } });
+  await sheet.sendPosts([post(1, 'private')]);
+  assert.equal(sent.length, 0);
+  assert.deepEqual(chrome.data.sheetPendingRows, []);
+});
+
+test('merging pre-1.4 queue variants keeps the fullest copy', async () => {
+  const chrome = fakeChrome(ENABLED, {
+    sheetPendingRows: [
+      { permalink: 'https://facebook.com/groups/g/posts/1?__cft__=a', text: 'complete listing text', text_complete: true },
+      { permalink: 'https://facebook.com/groups/g/posts/1?__cft__=b', text: 'short…', text_complete: false },
+    ],
+  });
+  let body;
+  const sheet = sheetApi.createSheet({ chrome, canonical: (u) => u.split('?')[0], fetch: async (u, o) => { body = JSON.parse(o.body); return reply(200, { ok: true, added: 1 }); } });
+  await sheet.sendPosts([]);
+  assert.equal(body.rows.length, 1);
+  assert.equal(body.rows[0].text, 'complete listing text');
+});

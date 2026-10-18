@@ -1,0 +1,13 @@
+[
+  {"input": "https://www.facebook.com/groups/condo/posts/123/?__cft__[0]=AZX&__tn__=%2CO%2CP-R", "expected": "https://facebook.com/groups/condo/posts/123"},
+  {"input": "https://www.facebook.com/groups/condo/permalink/123/?__cft__[0]=AZY", "expected": "https://facebook.com/groups/condo/posts/123"},
+  {"input": "https://m.facebook.com/groups/condo/posts/123", "expected": "https://facebook.com/groups/condo/posts/123"},
+  {"input": "https://facebook.com/groups/condo/posts/123", "expected": "https://facebook.com/groups/condo/posts/123"},
+  {"input": "https://www.facebook.com/permalink.php?story_fbid=555&id=777&__cft__[0]=x&__tn__=-R", "expected": "https://facebook.com/permalink.php?id=777&story_fbid=555"},
+  {"input": "https://www.facebook.com/story.php?id=777&story_fbid=555", "expected": "https://facebook.com/story.php?id=777&story_fbid=555"},
+  {"input": "https://www.facebook.com/somepage/posts/999?__cft__[0]=z", "expected": ""},
+  {"input": "https://www.facebook.com/posts/999?__cft__[0]=z", "expected": "https://facebook.com/posts/999"},
+  {"input": "http://www.facebook.com/groups/condo/posts/123", "expected": ""},
+  {"input": "https://evil.example/groups/condo/posts/123", "expected": ""},
+  {"input": "https://www.facebook.com/groups/condo", "expected": ""}
+]

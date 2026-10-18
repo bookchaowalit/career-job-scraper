@@ -305,6 +305,42 @@ def _post_id_from_path(parsed: Any) -> str:
     return match.group(1)[:MAX_POST_ID_LENGTH] if match else ""
 
 
+def _stable_post_url(parsed: Any, path: str, fallback: str) -> str:
+    """Drop per-page-load query tokens so one post has one URL.
+
+    Facebook appends ``__cft__``/``__tn__`` values that change on every load.
+    Must match ``canonicalFacebookPostUrl`` in the extension and ``Code.gs``.
+    """
+
+    group = re.fullmatch(r"/groups/([^/]+)/(?:posts|permalink)/([^/]+)", path, re.IGNORECASE)
+    if group:
+        return f"https://facebook.com/groups/{group.group(1)}/posts/{group.group(2)}"
+    if path.casefold().endswith(("/permalink.php", "/story.php")):
+        query = dict(parse_qsl(parsed.query, keep_blank_values=False))
+        if not query.get("story_fbid"):
+            return fallback
+        kept = sorted((key, query[key]) for key in ("id", "story_fbid") if query.get(key))
+        return urlunsplit(("https", "facebook.com", path.casefold(), urlencode(kept), ""))
+    return urlunsplit(("https", "facebook.com", path, "", ""))
+
+
+def legacy_canonical_post_url(value: Any) -> str:
+    """The pre-1.4 canonical form, which kept non-tracking query parameters.
+
+    Snapshots written before the stable form remain valid for review; new
+    imports always use ``canonical_post_url``.
+    """
+
+    return _canonical_parts(value)[1]
+
+
+def legacy_post_id(value: Any) -> str:
+    """The post_id the pre-1.4 importer derived for a legacy URL."""
+
+    parsed, canonical, _ = _canonical_parts(value)
+    return _post_id_from_path(parsed) or hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:24]
+
+
 def canonical_post_url(value: Any) -> tuple[str, str]:
     """Return a canonical Facebook post URL and a stable post identifier."""
 
@@ -317,6 +353,7 @@ def canonical_post_url(value: Any) -> tuple[str, str]:
     )
     if not valid_path:
         raise ValueError("invalid_post_url")
+    canonical = _stable_post_url(parsed, path, canonical)
     post_id = _post_id_from_path(parsed)
     if not post_id:
         # A direct URL with no visible ID is still deduplicable, but never use

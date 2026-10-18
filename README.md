@@ -437,6 +437,14 @@ smoke test is available at
 `tests/fixtures/facebook_group_posts_export.csv`; it does not prove live
 Facebook access.
 
+### Site access
+
+Since 1.4.0 the extension has no `<all_urls>` access.  Its page script runs
+only in the tab where you open the popup (`activeTab` + `scripting`), plus
+automatically on the listed job boards for the floating save button.  Capturing
+a property page or a Facebook Group therefore starts by clicking the extension
+icon on that tab, as before.
+
 ### Upload exports to your own cloud storage (optional)
 
 The extension can also upload every CSV it exports (property rows, the current
@@ -488,6 +496,13 @@ rows stay in the browser, the same rule the importer applies.
    Anyone*.  Copy the `/exec` URL.
 4. In the extension's ☁️ options page, paste the URL and the same secret, tick
    **เปิดใช้**, click **ทดสอบการเชื่อมต่อ** (sends an empty batch), then save.
+
+**Updating to 1.4.0:** permalinks are now canonical
+(`https://facebook.com/groups/<g>/posts/<id>`, no `__cft__`/`__tn__` query),
+so dedup works across page loads.  Paste the new `Code.gs`, then *Deploy →
+Manage deployments → Edit → New version* (the `/exec` URL stays the same), and
+run `cleanUpDuplicatePermalinks` once from the editor to rewrite old rows and
+delete the duplicates they produced.
 
 Columns: `collected_at` (ISO, Asia/Bangkok), `group_name`, `group_url`,
 `permalink`, `poster`, `posted`, `text`, `text_complete`, `processed`.  The

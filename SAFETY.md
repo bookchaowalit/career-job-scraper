@@ -46,6 +46,12 @@ subject to the same visibility, retention, and terms-basis rules as the local
 file: private or `unknown` Group rows must not be uploaded to a shared folder,
 and deleting a capture means deleting the cloud copy too.
 
+Since 1.4.0 the extension holds no `<all_urls>` permission: its page script is
+injected only into the tab where the operator opens the popup, or runs on the
+listed job boards.  Post URLs are canonicalised without Facebook's per-load
+`__cft__`/`__tn__` tokens, identically in the extension, the importer, and
+`Code.gs`.
+
 The optional Google Sheet sink sends only `public`-labelled Group rows the
 operator saved or exported, to an Apps Script web app the operator deployed in
 their own Sheet, authenticated by a shared secret.  It does not change the

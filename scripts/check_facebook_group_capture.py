@@ -22,6 +22,8 @@ from scripts.import_facebook_group_posts import (  # noqa: E402
     _truthy,
     canonical_group_url,
     canonical_post_url,
+    legacy_canonical_post_url,
+    legacy_post_id,
 )
 
 
@@ -151,7 +153,17 @@ def validate_group_capture_rows(
             canonical_post, expected_id = canonical_post_url(post_url)
         except ValueError:
             canonical_post, expected_id = "", ""
-        if not canonical_post or canonical_post != post_url:
+        # Snapshots written before 1.4 hold the older canonical form (with
+        # Facebook's per-load query); keep them reviewable.
+        if canonical_post and canonical_post != post_url:
+            try:
+                if legacy_canonical_post_url(post_url) != post_url:
+                    canonical_post = ""
+                else:
+                    expected_id = legacy_post_id(post_url)
+            except ValueError:
+                canonical_post = ""
+        if not canonical_post:
             errors.append(_error(row_number, "invalid_post_url"))
         elif post_url in seen_urls:
             errors.append(_error(row_number, "duplicate_post_url"))

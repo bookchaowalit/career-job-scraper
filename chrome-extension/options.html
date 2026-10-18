@@ -165,7 +165,7 @@
         <summary>วิธีติดตั้ง Apps Script</summary>
         <ol>
           <li>เปิด Google Sheet ปลายทาง → Extensions → Apps Script</li>
-          <li>วางโค้ดจาก <code>integrations/google-sheet/Code.gs</code> ใน repo</li>
+          <li>วางโค้ดจาก <code>apps-script/Code.gs</code> ในไฟล์ zip (ใน repo คือ <code>integrations/google-sheet/Code.gs</code>)</li>
           <li>Project Settings → Script properties → เพิ่ม <code>SECRET</code> เป็นค่าสุ่มยาวๆ และ <code>SPREADSHEET_ID</code> (id ใน URL ของ Sheet)</li>
           <li>Deploy → New deployment → Web app · Execute as: Me · Who has access: Anyone</li>
           <li>คัดลอก URL ที่ลงท้ายด้วย <code>/exec</code> มาวางด้านบน พร้อม secret เดียวกัน</li>

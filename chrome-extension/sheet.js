@@ -2,9 +2,10 @@
 //
 // Off by default.  When enabled in the options page, posts the operator saves
 // or exports are appended to a Google Sheet through the operator's own Apps
-// Script web app (integrations/google-sheet/Code.gs).  Only rows the operator
-// labelled `public` are sent; private and unknown rows stay local, matching
-// the importer's quarantine rule.  Rows that cannot be delivered are kept in
+// Script web app (apps-script/Code.gs in the zip, integrations/google-sheet/
+// Code.gs in the repo).  Only rows the operator labelled `public` are sent;
+// private and unknown rows stay local, matching the importer's quarantine
+// rule.  Rows that cannot be delivered are kept in
 // a bounded local queue and retried on the next send.
 //
 // Loaded by background.js (importScripts) and options.js (<script>); the tests
@@ -61,6 +62,7 @@
     const chromeApi = deps.chrome;
     const fetchImpl = deps.fetch;
     const now = deps.now || (() => Date.now());
+    const canonical = deps.canonical || ((url) => url);
 
     async function loadSettings() {
       const stored = await chromeApi.storage.local.get([SETTINGS_KEY]);
@@ -131,7 +133,10 @@
 
     async function readQueue() {
       const stored = await chromeApi.storage.local.get([PENDING_KEY]);
-      return Array.isArray(stored[PENDING_KEY]) ? stored[PENDING_KEY] : [];
+      const rows = Array.isArray(stored[PENDING_KEY]) ? stored[PENDING_KEY] : [];
+      return rows
+        .filter((row) => row && row.permalink)
+        .map((row) => ({ ...row, permalink: canonical(row.permalink) || row.permalink }));
     }
 
     // Send posts (plus anything still queued).  Never throws: the result says
@@ -161,7 +166,10 @@
 
       const byLink = new Map();
       queued.forEach((row) => {
-        if (row && row.permalink && !withdrawn.has(row.permalink)) byLink.set(row.permalink, row);
+        if (!row || !row.permalink || withdrawn.has(row.permalink)) return;
+        // Pre-1.4 queues can hold several __cft__ variants of one post.
+        const current = byLink.get(row.permalink);
+        if (!current || rowScore(row) > rowScore(current)) byLink.set(row.permalink, row);
       });
       // Never replace a fuller queued copy with a truncated recapture.
       publicPosts.map(toRow).forEach((row) => {

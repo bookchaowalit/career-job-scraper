@@ -51,12 +51,16 @@ function runExtractor(article) {
   return vm.runInNewContext(`${source.slice(start, end)}; extractFacebookGroupPosts()`, { document, window, URL, URLSearchParams });
 }
 
-function article({ profileName, header, looseLink, time, permalinkLabel }) {
+function article({ profileName, header, looseLink, time, permalinkLabel, seeMore }) {
   const permalink = el({ href: 'https://www.facebook.com/groups/testgroup/posts/123/?__cft__=x', 'aria-label': permalinkLabel }, '2h');
   permalink.href = permalink.attrs.href;
   const node = {
     innerText: 'Somchai ให้เช่าคอนโด 12,000 บาท',
-    querySelectorAll: (sel) => (sel === 'a[href]' ? [permalink] : []),
+    querySelectorAll: (sel) => {
+      if (sel === 'a[href]') return [permalink];
+      if (sel === '[role="button"], span, div') return seeMore ? [el({}, seeMore)] : [];
+      return [];
+    },
     querySelector: (sel) => {
       if (sel === 'time, abbr[title], [data-utime]') return time || null;
       if (sel === '[data-ad-rendering-role="profile_name"] a') return profileName ? el({}, profileName) : null;
@@ -80,4 +84,17 @@ test('posted time falls back to the permalink aria-label, then its text', () => 
   assert.equal(withTime.posts[0].posted_at, '2026-10-18T09:12:00+07:00');
   assert.equal(runExtractor(article({ permalinkLabel: '18 October at 09:12' })).posts[0].posted_at, '18 October at 09:12');
   assert.equal(runExtractor(article({})).posts[0].posted_at, '2h');
+});
+
+test('permalink drops per-load __cft__/__tn__ tokens', () => {
+  const post = runExtractor(article({})).posts[0];
+  assert.equal(post.post_url, 'https://facebook.com/groups/testgroup/posts/123');
+});
+
+test('text_complete follows a visible See more control, not the word in the text', () => {
+  assert.equal(runExtractor(article({})).posts[0].text_complete, true);
+  assert.equal(runExtractor(article({ seeMore: 'ดูเพิ่มเติม' })).posts[0].text_complete, false);
+  assert.equal(runExtractor(article({ seeMore: 'See more' })).posts[0].text_complete, false);
+  assert.equal(runExtractor(article({ seeMore: 'อ่านเพิ่มเติม' })).posts[0].text_complete, false);
+  assert.equal(runExtractor(article({ seeMore: 'แสดงเพิ่มเติม' })).posts[0].text_complete, false);
 });

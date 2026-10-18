@@ -1,3 +1,17 @@
+// The content script is injected on demand into the tab the operator opened
+// the popup on (activeTab), instead of running on every site.  content.js
+// guards against a second injection, so calling this repeatedly is safe.
+// Pages Chrome does not allow (chrome://, the Web Store) fail quietly and the
+// callers fall back to manual entry.
+async function ensureContentScript(tabId) {
+  try {
+    await chrome.scripting.insertCSS({ target: { tabId }, files: ['content.css'] });
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] });
+  } catch (error) {
+    // Not injectable; the following sendMessage reports lastError.
+  }
+}
+
 // Quick Job Saver — Popup Script
 document.addEventListener('DOMContentLoaded', async () => {
   const saveBtn = document.getElementById('saveBtn');
@@ -61,6 +75,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
   // Try to extract job info from the page
+  await ensureContentScript(tab.id);
   chrome.tabs.sendMessage(tab.id, { action: 'extractJob' }, (response) => {
     if (chrome.runtime.lastError) {
       // Content script not loaded — try to extract from URL
@@ -168,6 +183,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function extractProperty() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     propertyStatus.innerHTML = '<p>กำลังอ่านข้อความที่มองเห็นบนแท็บปัจจุบัน...</p>';
+    await ensureContentScript(tab.id);
     chrome.tabs.sendMessage(tab.id, { action: 'extractProperty' }, (response) => {
       if (chrome.runtime.lastError || !response || !response.property) {
         propertyStatus.innerHTML = '<p>กรอกข้อมูลเองได้ ระบบไม่สามารถอ่านแท็บนี้ได้</p>';
@@ -281,24 +297,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     return false;
   }
 
+  // Same rule as canonicalFacebookPostUrl in content.js/background.js, so a
+  // draft saved before 1.4 merges with canonical recaptures.
   function canonicalFacebookGroupPostUrl(value) {
+    let parsed;
     try {
-      const parsed = new URL(String(value || '').trim());
-      const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
-      if (parsed.protocol !== 'https:' || (host !== 'facebook.com' && !host.endsWith('.facebook.com')) || parsed.username || parsed.password || parsed.port) return '';
-      const params = new URLSearchParams(parsed.search);
-      [...params.keys()].forEach((key) => {
-        if (/^(utm_|fbclid$|gclid$|dclid$|ref$|referrer$|source$|src$)/i.test(key)) params.delete(key);
-      });
-      params.sort();
-      parsed.hostname = 'facebook.com';
-      parsed.search = params.toString();
-      parsed.hash = '';
-      parsed.pathname = parsed.pathname.replace(/\/+$/, '') || '/';
-      return parsed.toString();
+      parsed = new URL(String(value || '').trim());
     } catch (error) {
       return '';
     }
+    const host = parsed.hostname.toLowerCase().replace(/^(www|m|web)\./, '');
+    if (parsed.protocol !== 'https:' || (host !== 'facebook.com' && !host.endsWith('.facebook.com')) || parsed.username || parsed.password || parsed.port) return '';
+    const path = parsed.pathname.replace(/\/+$/, '');
+    const group = path.match(/^\/groups\/([^/]+)\/(?:posts|permalink)\/([^/]+)$/i);
+    if (group) return `https://facebook.com/groups/${group[1]}/posts/${group[2]}`;
+    if (/^\/(?:permalink|story)\.php$/i.test(path)) {
+      const keep = new URLSearchParams();
+      ['id', 'story_fbid'].forEach((key) => {
+        const found = parsed.searchParams.get(key);
+        if (found) keep.set(key, found);
+      });
+      if (!keep.get('story_fbid')) return '';
+      return `https://facebook.com${path.toLowerCase()}?${keep.toString()}`;
+    }
+    if (/^\/(?:posts|permalink|story)\/[^/]+$/i.test(path)) return `https://facebook.com${path}`;
+    return '';
   }
 
   function mergeFacebookGroupPosts(existing, incoming) {
@@ -341,6 +364,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     facebookGroupStatus.textContent = 'กำลังอ่านข้อความโพสต์ที่มองเห็นบนแท็บปัจจุบัน...';
     captureNextFacebookGroupPageBtn.disabled = true;
+    await ensureContentScript(tab.id);
     chrome.tabs.sendMessage(tab.id, { action: 'extractFacebookGroupPosts' }, (response) => {
       captureNextFacebookGroupPageBtn.disabled = false;
       if (chrome.runtime.lastError || !response || !response.group) {

@@ -2,6 +2,11 @@
 // Detects job information from the current page
 
 (function() {
+  // Injected on demand by the popup (and declared for job sites), so it can
+  // run twice in one page; register listeners and the button only once.
+  if (window.__quickSaverContentLoaded) return;
+  window.__quickSaverContentLoaded = true;
+
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'extractJob') {
       const job = extractJobFromPage();
@@ -212,25 +217,42 @@
       result.visibility = 'private';
     }
 
-    const cleanFacebookUrl = (href) => {
+    // One canonical form per post, shared with the Python importer and Code.gs:
+    // https://facebook.com/groups/<g>/posts/<id> with no query (Facebook adds
+    // per-load __cft__/__tn__ tokens), and permalink.php/story.php reduced to
+    // story_fbid + id.  Without this the same post dedupes as a new row on every
+    // page load.
+    function canonicalFacebookPostUrl(value) {
+      let parsed;
       try {
-        const parsed = new URL(href, window.location.href);
-        const parsedHost = parsed.hostname.toLowerCase().replace(/^www\./, '');
-        if (parsed.protocol !== 'https:' || (parsedHost !== 'facebook.com' && !parsedHost.endsWith('.facebook.com')) || parsed.username || parsed.password || parsed.port) return '';
-        const params = new URLSearchParams(parsed.search);
-        [...params.keys()].forEach((key) => {
-          if (/^(utm_|fbclid$|gclid$|dclid$|ref$|referrer$|source$|src$)/i.test(key)) params.delete(key);
-        });
-        params.sort();
-        parsed.hostname = 'facebook.com';
-        parsed.search = params.toString();
-        parsed.hash = '';
-        parsed.pathname = parsed.pathname.replace(/\/+$/, '') || '/';
-        return parsed.toString();
+        parsed = new URL(String(value || '').trim());
       } catch (error) {
         return '';
       }
-    };
+      const host = parsed.hostname.toLowerCase().replace(/^(www|m|web)\./, '');
+      if (parsed.protocol !== 'https:' || (host !== 'facebook.com' && !host.endsWith('.facebook.com')) || parsed.username || parsed.password || parsed.port) return '';
+      const path = parsed.pathname.replace(/\/+$/, '');
+      const group = path.match(/^\/groups\/([^/]+)\/(?:posts|permalink)\/([^/]+)$/i);
+      if (group) return `https://facebook.com/groups/${group[1]}/posts/${group[2]}`;
+      if (/^\/(?:permalink|story)\.php$/i.test(path)) {
+        const keep = new URLSearchParams();
+        ['id', 'story_fbid'].forEach((key) => {
+          const found = parsed.searchParams.get(key);
+          if (found) keep.set(key, found);
+        });
+        if (!keep.get('story_fbid')) return '';
+        return `https://facebook.com${path.toLowerCase()}?${keep.toString()}`;
+      }
+      if (/^\/(?:posts|permalink|story)\/[^/]+$/i.test(path)) return `https://facebook.com${path}`;
+      return '';
+    }
+
+    // Text is truncated while Facebook still shows a "See more" control in the
+    // post.  Matching the word in the text misfired on posts that merely say
+    // "เพิ่มเติม" ("more").
+    const hasVisibleSeeMore = (article) => Array.from(article.querySelectorAll('[role="button"], span, div'))
+      .some((node) => /^\s*(see more|ดูเพิ่มเติม|อ่านเพิ่มเติม|แสดงเพิ่มเติม)\s*$/i.test(node.textContent || '')
+        && (!node.getClientRects || node.getClientRects().length > 0));
 
     const postId = (postUrl) => {
       try {
@@ -248,13 +270,8 @@
     const seen = new Set();
     articles.forEach((article) => {
       const anchors = Array.from(article.querySelectorAll('a[href]'));
-      const isPermalink = (href) => {
-        if (!href) return false;
-        const path = new URL(href).pathname;
-        return /\/groups\/[^/]+\/(?:posts|permalink)\/[^/]+/i.test(path) || /\/(?:permalink|story)\.php$/i.test(path) || /\/(?:posts|permalink)\/[^/]+/i.test(path);
-      };
-      const permalinkAnchor = anchors.find((anchor) => isPermalink(cleanFacebookUrl(anchor.href)));
-      const link = permalinkAnchor ? cleanFacebookUrl(permalinkAnchor.href) : '';
+      const permalinkAnchor = anchors.find((anchor) => canonicalFacebookPostUrl(anchor.href));
+      const link = permalinkAnchor ? canonicalFacebookPostUrl(permalinkAnchor.href) : '';
       if (!link || seen.has(link)) return;
       seen.add(link);
 
@@ -283,7 +300,7 @@
         author_name: author === result.group_name ? '' : author,
         posted_at: postedAt,
         text: articleText,
-        text_complete: !/(see\s+more|ดูเพิ่มเติม|เพิ่มเติม|more\.\.\.)/iu.test(articleText),
+        text_complete: !hasVisibleSeeMore(article),
         capture_method: 'chrome_extension_visible_tab',
         source_channel: 'facebook_group',
         source_platform: 'facebook',

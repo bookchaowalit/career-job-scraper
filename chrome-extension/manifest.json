@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Quick Saver — Jobs & Property Leads",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Save jobs, property rows, or Facebook Group posts for review; optional upload to your Google Drive, Dropbox or OneDrive.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtk86BqP1gfwWLgK6yrN8a+1R4VZrYJ+P3/jt6yGbnZ8umHUkvuX11LkhChousJ9oigH5iUwwyO72i8ZIWWEENt8xn7Yuky5zjfF7MSi4b0EDu79UmW3QpebAZhtl6M+ed54TE2AZ6wP+eXpWKnOWshUVQIS/1peXqoJm0tqa7AW8ALZtFWolruincnFnD87pRZDXGdSOllMakA6fo6uSsdSAfUM3iOVWV8MiZmZ0UmcBuztcc4rSd+6oMbJFmKoNzHGdsZZOlkh4Eii7sszgmllmqhjyVnjb7A1pEhj6/So/LUwZR8AkeYRzvqVNHx+lTYpY7YV8WZDJeU50Sm/09QIDAQAB",
-  "permissions": ["activeTab", "storage", "contextMenus", "downloads", "identity", "notifications"],
+  "permissions": ["activeTab", "storage", "contextMenus", "downloads", "identity", "notifications", "scripting"],
   "host_permissions": [
     "https://*.linkedin.com/*",
     "https://*.indeed.com/*",
@@ -22,8 +22,7 @@
     "https://content.dropboxapi.com/*",
     "https://graph.microsoft.com/*",
     "https://script.google.com/*",
-    "https://script.googleusercontent.com/*",
-    "<all_urls>"
+    "https://script.googleusercontent.com/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -39,7 +38,19 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "https://*.linkedin.com/*",
+        "https://*.indeed.com/*",
+        "https://*.glassdoor.com/*",
+        "https://*.remotive.com/*",
+        "https://*.weworkremotely.com/*",
+        "https://*.remoteok.com/*",
+        "https://*.wellfound.com/*",
+        "https://*.otta.com/*",
+        "https://*.dice.com/*",
+        "https://*.jobthai.com/*",
+        "https://*.jobsdb.com/*"
+      ],
       "js": ["content.js"],
       "css": ["content.css"]
     }

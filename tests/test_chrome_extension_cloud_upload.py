@@ -80,3 +80,72 @@ class CsvFormulaGuardRoundTripTests(unittest.TestCase):
         self.assertIn(
             "https://script.googleusercontent.com/*", manifest["host_permissions"]
         )
+
+
+class CanonicalPermalinkTests(unittest.TestCase):
+    def test_python_importer_matches_the_extension_cases(self):
+        from scripts.import_facebook_group_posts import canonical_post_url
+
+        cases = json.loads(
+            (ROOT / "tests" / "js" / "permalink_cases.json").read_text(encoding="utf-8")
+        )
+        for case in cases:
+            with self.subTest(url=case["input"]):
+                if case["expected"]:
+                    self.assertEqual(
+                        canonical_post_url(case["input"])[0], case["expected"]
+                    )
+                else:
+                    with self.assertRaises(ValueError):
+                        canonical_post_url(case["input"])
+
+    def test_manifest_no_longer_reads_every_site(self):
+        manifest = json.loads((EXTENSION / "manifest.json").read_text(encoding="utf-8"))
+        self.assertNotIn("<all_urls>", manifest["host_permissions"])
+        self.assertIn("scripting", manifest["permissions"])
+        for match in manifest["content_scripts"][0]["matches"]:
+            self.assertNotEqual(match, "<all_urls>")
+            self.assertNotIn("facebook", match)
+
+    def test_pre_14_snapshot_urls_still_validate(self):
+        from scripts.check_facebook_group_capture import validate_group_capture_rows
+        from scripts.import_facebook_group_posts import import_facebook_group_rows
+
+        rows, _, _ = import_facebook_group_rows(
+            [
+                {
+                    "group_url": "https://facebook.com/groups/condo",
+                    "post_url": "https://facebook.com/groups/condo/posts/123",
+                    "text": "ให้เช่าคอนโด เจ้าของปล่อยเอง",
+                    "visibility": "public",
+                }
+            ]
+        )
+        legacy = dict(rows[0], post_url=rows[0]["post_url"] + "?__cft__%5B0%5D=AZ")
+        report = validate_group_capture_rows([legacy])
+        self.assertNotIn(
+            "invalid_post_url", json.dumps(report.get("errors", []), ensure_ascii=False)
+        )
+
+    def test_pre_14_story_snapshot_keeps_its_hash_post_id(self):
+        from scripts.check_facebook_group_capture import validate_group_capture_rows
+        from scripts.import_facebook_group_posts import (
+            import_facebook_group_rows,
+            legacy_post_id,
+        )
+
+        legacy_url = "https://facebook.com/story/123?__cft__%5B0%5D=AZ"
+        rows, _, _ = import_facebook_group_rows(
+            [
+                {
+                    "group_url": "https://facebook.com/groups/condo",
+                    "post_url": "https://facebook.com/groups/condo/posts/9",
+                    "text": "ให้เช่าคอนโด เจ้าของปล่อยเอง",
+                    "visibility": "public",
+                }
+            ]
+        )
+        legacy = dict(rows[0], post_url=legacy_url, post_id=legacy_post_id(legacy_url))
+        errors = json.dumps(validate_group_capture_rows([legacy]).get("errors", []))
+        self.assertNotIn("invalid_post_url", errors)
+        self.assertNotIn("post_id_mismatch", errors)
