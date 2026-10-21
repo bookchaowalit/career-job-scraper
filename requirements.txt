@@ -32,6 +32,7 @@ pyyaml>=6.0
 # without the constraints file above the published advisories.
 aiohttp>=3.13.4
 anyio>=4.14.2
+certifi>=2026.10.19  # PYSEC-2026-4320: compromised emSign intermediates
 idna>=3.15
 
 # ── Windows runtime ────────────────────────────────
