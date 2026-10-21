@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-14
 **Tier:** A flagship  
-**Status:** local collection scheduler active; live application send/apply remains gated.
+**Status:** hosted job capture + R2 ingest every 6 h on GitHub Actions (since 2026-10-21); the local scheduler is optional; live application send/apply remains gated.
 Fill env values only in a private secrets store; never commit secrets.
 
 ## Install / build
@@ -57,6 +57,41 @@ bash setup_cron.sh status
 
 The installed command runs `main.py run` and then
 `scripts/pipeline_health_monitor.py` under the same `flock` lock.
+
+## Hosted job capture (GitHub Actions)
+
+`.github/workflows/scheduled-capture.yml` runs at minute 17 every 6 hours
+(UTC) and on manual dispatch:
+
+1. `scripts/cloud_capture.py` runs `job_postings`, `career_postings` and
+   `job_match_filter` once. Job output goes to `data/logs/cloud-capture.log`,
+   which is never uploaded, because the Actions log of this public repo is
+   public. The console shows one status line per job.
+2. `job_match_filter` runs with `seed_tracker` off: `apply_tracker.csv` and
+   other application material never exist on the runner.
+3. `book-job-data` (pinned by `BOOK_JOB_DATA_REF`) ingests `job_postings.csv`
+   and `matched_jobs.csv` into R2 `portfolio-demo/book-job-data-001`, the
+   prefix the Railway `book-job-data-api` reads. A partial capture is still
+   ingested.
+4. The run posts `ok` or the failed steps to the uptime Worker heartbeat
+   `job-capture` (alert after 13 h of silence, or at once on a failure).
+
+No Telegram job alerts are sent from this run: Railway `income-pipeline/job-radar`
+already alerts hourly on the overlapping remote boards.
+
+Secrets (repo secrets, source of truth in Infisical `/job-data`, plus
+`HEARTBEAT_TOKEN` from `/monitoring`): `JOB_DATA_R2_ACCESS_KEY_ID`,
+`JOB_DATA_R2_SECRET_ACCESS_KEY` (Cloudflare token
+`book-job-data-capture`, bucket `solo-empire-portfolio` only),
+`JOB_DATA_S3_ENDPOINT`, `JOB_DATA_LAKE_URI`.
+
+Only `data/job_postings_history.csv` (public postings, for new-job counts) is
+carried between runs in the Actions cache. GitHub disables schedules in a
+repository with no commits for 60 days; the heartbeat alert is the signal to
+re-enable it (`gh workflow enable scheduled-capture.yml`).
+
+Run once by hand: `gh workflow run scheduled-capture.yml`. Check freshness:
+`GET /v1/metadata` on the API (`data_status`) or the newest `scraped_at`.
 
 ## Review source coverage
 
@@ -409,11 +444,22 @@ not require optional AI, notification, or live-application steps.
 
 ## Rollback
 
-1. Remove only this repository's scheduler entry:
-   `bash setup_cron.sh remove`
+1. Hosted: `gh workflow disable scheduled-capture.yml`, then remove the
+   `job-capture` heartbeat from platform-uptime-worker `src/targets.ts`.
+   Local: remove only this repository's scheduler entry with
+   `bash setup_cron.sh remove`.
 2. Keep `data/` intact for review; it is ignored runtime output.
 3. Do not enable live email/ATS paths. They require the explicit gates in
    `SAFETY.md`.
+
+## Verified state (2026-10-21, hosted)
+
+- First `scheduled-capture` run (dispatch, 39638472091): all steps green;
+  435 postings, 148 career postings, 161 matches captured; 400 + 161 records
+  ingested; heartbeat `job-capture` recorded.
+- API `/v1/metadata` afterwards: `data_status: ok`, newest `scraped_at`
+  2026-10-21 16:53 UTC (was `stale`, newest 2026-08-20).
+- Public Actions log for the capture step: three status lines only.
 
 ## Verified state (2026-08-24)
 

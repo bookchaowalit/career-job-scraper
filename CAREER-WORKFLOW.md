@@ -37,7 +37,10 @@ The existing due-job scheduler includes `career_postings` before
 with the existing job postings, deduplicates URLs and retains lane/description
 evidence in `matched_jobs.csv`. The unchanged book-job-data ingest preserves
 those additive fields in Bronze `job.v1/job_matches`. Local capture success
-does not prove the hosted API has ingested the new snapshot.
+does not prove the hosted API has ingested the new snapshot. The hosted
+`scheduled-capture` workflow (see `RUNBOOK.md`) runs the same three steps
+every 6 hours and ingests the result into R2; it never builds review packets
+or touches the apply tracker.
 
 ## Review and prepare
 
