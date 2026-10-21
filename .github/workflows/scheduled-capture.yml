@@ -1,0 +1,105 @@
+# Hosted job discovery: capture every 6 hours, then ingest into the R2 lake that the
+# book-job-data API (Railway) reads. Public repository: GitHub-hosted runner, no cost.
+#
+# The log is public. scripts/cloud_capture.py keeps job output in an unuploaded file and
+# runs job_match_filter without the private apply tracker. No Telegram job alerts here
+# (Railway job-radar alerts on the same boards); failures reach Telegram through the
+# uptime Worker heartbeat `job-capture`.
+name: Scheduled capture
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scheduled-capture
+  cancel-in-progress: false
+
+env:
+  # book-job-data at a reviewed commit; bump deliberately.
+  BOOK_JOB_DATA_REF: b03c5d9a265723995819abfe8b5042345194d2c4
+
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            constraints.txt
+
+      - name: Install scraper
+        run: python -m pip install -c constraints.txt -r requirements.txt
+
+      - name: Install book-job-data (separate venv)
+        run: |
+          python -m venv "$RUNNER_TEMP/ingest"
+          "$RUNNER_TEMP/ingest/bin/pip" install --quiet \
+            "book-job-data[lake] @ https://github.com/bookchaowalit/career-job-market-data/archive/${BOOK_JOB_DATA_REF}.tar.gz"
+
+      # Only the seen-jobs history (public postings) is carried between runs, so new-job
+      # counts stay meaningful. Nothing private is cached.
+      - name: Restore capture history
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: data/job_postings_history.csv
+          key: capture-history-${{ github.run_id }}
+          restore-keys: capture-history-
+
+      - name: Capture
+        id: capture
+        env:
+          PYTHONUTF8: "1"
+        run: python scripts/cloud_capture.py
+
+      - name: Save capture history
+        if: ${{ !cancelled() && hashFiles('data/job_postings_history.csv') != '' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: data/job_postings_history.csv
+          key: capture-history-${{ github.run_id }}
+
+      # Runs after a partial capture too: whatever landed is still worth ingesting.
+      - name: Ingest into R2
+        id: ingest
+        if: ${{ !cancelled() }}
+        env:
+          SOLO_EMPIRE_DATA_LAKE_URI: ${{ secrets.JOB_DATA_LAKE_URI }}
+          DATA_LAKE_S3_ENDPOINT: ${{ secrets.JOB_DATA_S3_ENDPOINT }}
+          AWS_ENDPOINT_URL: ${{ secrets.JOB_DATA_S3_ENDPOINT }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.JOB_DATA_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.JOB_DATA_R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          DATA_LAKE_CLOUD_WRITE_ENABLED: "true"
+        run: |
+          mapfile -t inputs < <(python scripts/cloud_capture.py --inputs)
+          if [ "${#inputs[@]}" -eq 0 ]; then echo "No capture files to ingest"; exit 1; fi
+          args=()
+          for path in "${inputs[@]}"; do args+=(--input "$path"); done
+          # Prints dataset names and record counts only (no rows).
+          "$RUNNER_TEMP/ingest/bin/book-job-data" "${args[@]}" --data-lake-uri "$SOLO_EMPIRE_DATA_LAKE_URI"
+
+      - name: Heartbeat
+        if: ${{ always() }}
+        env:
+          HEARTBEAT_TOKEN: ${{ secrets.HEARTBEAT_TOKEN }}
+          CAPTURE: ${{ steps.capture.outcome }}
+          INGEST: ${{ steps.ingest.outcome }}
+        run: |
+          failed=()
+          [ "$CAPTURE" = success ] || failed+=("capture")
+          [ "$INGEST" = success ] || failed+=("ingest")
+          body=$(jq -cn '$ARGS.positional as $f | {ok: ($f | length == 0), failed: $f}' --args "${failed[@]}")
+          curl -fsS -X POST https://solo-empire-monitor.bookchaowalit.workers.dev/heartbeat/job-capture \
+            -H "Authorization: Bearer $HEARTBEAT_TOKEN" -H "Content-Type: application/json" -d "$body"
