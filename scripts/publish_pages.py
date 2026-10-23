@@ -79,7 +79,6 @@ const ROUTES = {{
   "/defi": "defi.html",
   "/github_trending": "github_trending.html",
   "/jobs": "jobs.html",
-  "/flights": "flights.html",
   "/opportunities": "opportunities.html",
   "/property": "property.html",
   "/seo": "seo.html",

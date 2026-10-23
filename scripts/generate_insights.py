@@ -86,10 +86,6 @@ SCRAPER_PATHS = {
         "latest": ROOT / "data" / "job_postings.csv",
         "history": ROOT / "data" / "job_postings_history.csv",
     },
-    "flights": {
-        "latest": ROOT / "domains" / "book-travel" / "data" / "flight_prices.csv",
-        "history": ROOT / "domains" / "book-travel" / "data" / "flight_prices_history.csv",
-    },
     "property": {
         "latest": ROOT / "data" / "exported" / "property_listings.csv",
         "history": ROOT / "data" / "exported" / "property_history.csv",
@@ -117,7 +113,6 @@ NICHE_NAMES = {
     "defi": "DeFi Yields",
     "github_trending": "GitHub Trending",
     "jobs": "Job Market",
-    "flights": "Flight Prices",
     "property": "Real Estate",
     "seo": "SEO Rankings",
     "ai_tools": "AI Tools",
@@ -484,70 +479,6 @@ def extract_job_insights(latest: list, history: list) -> list:
     return insights
 
 
-def extract_flight_insights(latest: list, history: list) -> list:
-    """Extract flight price insights."""
-    insights = []
-    if not latest:
-        return insights
-
-    # Current prices
-    routes = {}
-    for row in latest:
-        route = f"{row.get('origin', '?')}-{row.get('destination', '?')}"
-        try:
-            price = int(row.get("price_thb", 0))
-            if price > 0 and price < 9999:  # Filter out placeholder 9999
-                routes[route] = {"price": price, "airline": row.get("airline", "")}
-        except (ValueError, TypeError):
-            continue
-
-    if routes:
-        cheapest = min(routes.items(), key=lambda x: x[1]["price"])
-        insights.append({
-            "type": "price_alert",
-            "title": f"Cheapest flight: {cheapest[0]} at ฿{cheapest[1]['price']:,}",
-            "narrative": f"Best deal right now: {cheapest[0]} at ฿{cheapest[1]['price']:,}. "
-                        f"Tracked routes: {len(routes)}.",
-            "data_points": {"routes": routes},
-            "actionability": 85,
-            "content_hook": f"✈️ Deal alert: {cheapest[0]} for just ฿{cheapest[1]['price']:,}",
-        })
-
-    # Price trend from history
-    if history and len(history) >= 2:
-        route_prices = {}
-        for row in history:
-            route = f"{row.get('origin', '?')}-{row.get('destination', '?')}"
-            try:
-                price = int(row.get("price_thb", 0))
-                if price > 0 and price < 9999:
-                    route_prices.setdefault(route, []).append(price)
-            except (ValueError, TypeError):
-                continue
-
-        dropping = []
-        for route, prices in route_prices.items():
-            if len(prices) >= 2 and prices[-1] < prices[0]:
-                drop_pct = ((prices[0] - prices[-1]) / prices[0]) * 100
-                if drop_pct > 5:
-                    dropping.append((route, drop_pct, prices[0], prices[-1]))
-
-        if dropping:
-            dropping.sort(key=lambda x: x[1], reverse=True)
-            top = dropping[0]
-            insights.append({
-                "type": "price_trend",
-                "title": f"{top[0]} prices dropped {top[1]:.0f}% — good time to buy?",
-                "narrative": f"{top[0]} went from ฿{top[2]:,} to ฿{top[3]:,} ({top[1]:.0f}% drop). "
-                            f"{'Routes dropping: ' + ', '.join(f'{r[0]} ({r[1]:.0f}%)' for r in dropping[:3]) if len(dropping) > 1 else ''}",
-                "data_points": {"dropping_routes": dropping[:5]},
-                "actionability": 90,
-                "content_hook": f"📉 {top[0]} just got cheaper — book now?",
-            })
-
-    return insights
-
-
 def extract_exchange_rate_insights(latest: list, history: list) -> list:
     """Extract exchange rate insights."""
     insights = []
@@ -807,7 +738,6 @@ EXTRACTORS = {
     "defi": extract_defi_insights,
     "github_trending": extract_github_insights,
     "jobs": extract_job_insights,
-    "flights": extract_flight_insights,
     "exchange_rates": extract_exchange_rate_insights,
     "marketplace": extract_marketplace_insights,
     "restaurants": extract_restaurant_insights,

@@ -155,14 +155,6 @@ SCRAPER_SOURCES = {
         "alert_threshold": 20.0,
         "icon": "🏦",
     },
-    "flights": {
-        "name": "Flight Prices",
-        "latest": ROOT / "domains" / "book-travel" / "data" / "flight_prices.csv",
-        "history": ROOT / "domains" / "book-travel" / "data" / "flight_prices_history.csv",
-        "alert_field": None,
-        "alert_threshold": 0,
-        "icon": "✈️",
-    },
 }
 
 

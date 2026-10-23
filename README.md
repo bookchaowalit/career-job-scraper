@@ -120,15 +120,15 @@ The scheduler state is written to `data/schedule_state.json`.
 | `stock_prices` | finance | Yahoo Finance chart API | Daily 8:00 AM | migrated to book-stock-data |
 | `defi_yields` | finance | DefiLlama pools API | Daily 7:00 AM | migrated to book-defi-data |
 | news / Kaidee / Wongnai jobs | — | — | — | removed 2026-09-30; owned by book-news-, book-ecommerce-, book-restaurant-scraping |
-| `flight_prices` | travel | firecrawl+httpx | Weekly Mon 7:00 AM | disabled (`scripts.scrape_flight_prices` not in this checkout) |
 | `seo_rankings` | marketing | httpx public pages | Daily 8:00 AM | migrated to book-seo-data |
 | `job_postings` | jobs | firecrawl+httpx | Every 6 hours | enabled |
 | `career_postings` | jobs | httpx (public company ATS pages) | Every 6 hours | enabled |
 | `job_match_filter` | jobs | local | Every 6 hours, after capture | enabled |
 | `scraper_dashboard` | operations | local | 8:15, 11:15, 20:15 | enabled |
 
-The coverage registry still holds `flight_prices` and `ddproperty_condos`
-behind their source gates, and holds `property_social_leads` as conditional
+The coverage registry still holds `ddproperty_condos` behind its source gate
+(the `flight_prices` job was removed on 2026-10-23 with the retired flights
+data product), and holds `property_social_leads` as conditional
 until a bounded public-search smoke and terms review pass. The
 former cross-source `money_opportunities` lane was retired with the shared
 opportunity synthesis; it is no longer scheduled or a collection target.

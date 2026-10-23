@@ -40,7 +40,6 @@ NICHE_META = {
     "defi": {"icon": "🏦", "color": "#8b5cf6", "label": "DeFi Yields"},
     "github_trending": {"icon": "🔥", "color": "#181717", "label": "GitHub Trending"},
     "jobs": {"icon": "💼", "color": "#06b6d4", "label": "Job Market"},
-    "flights": {"icon": "✈️", "color": "#f59e0b", "label": "Flight Prices"},
     "opportunities": {"icon": "💰", "color": "#10b981", "label": "Money Opportunities"},
     "property": {"icon": "🏠", "color": "#ef4444", "label": "Real Estate"},
     "seo": {"icon": "🔍", "color": "#6366f1", "label": "SEO Rankings"},
@@ -438,14 +437,6 @@ def render_data_points(data_points: dict, niche_key: str) -> str:
         html += '<table class="data-table"><thead><tr><th>Repository</th><th>Stars</th><th>Language</th></tr></thead><tbody>'
         for repo in repos[:5]:
             html += f'<tr><td><a href="{repo.get("url", "#")}" style="color:var(--accent);text-decoration:none">{repo.get("name", "?")}</a></td><td>⭐ {repo.get("stars", 0):,}</td><td>{repo.get("language", "?")}</td></tr>'
-        html += '</tbody></table>'
-    
-    elif "routes" in data_points:  # Flight routes
-        routes = data_points["routes"]
-        html += '<table class="data-table"><thead><tr><th>Route</th><th>Price</th></tr></thead><tbody>'
-        for route, info in routes.items():
-            price = info.get("price", 0)
-            html += f'<tr><td>{route}</td><td style="color:var(--green);font-weight:600">฿{price:,}</td></tr>'
         html += '</tbody></table>'
     
     elif "rates" in data_points:  # Exchange rates

@@ -102,12 +102,14 @@ Full detail: [`SAFETY.md`](./SAFETY.md).
   the Linux/cron path and uses the same runner semantics.
 - The enabled collection surface is nine configured jobs. News, Wongnai,
   Kaidee, SEO, AI tools, crypto, FX, stocks, and DefiLlama yields are
-  `migrated` to domain crons. `flight_prices` and `ddproperty_condos` remain
-  blocked, while `property_social_leads` is planned behind an official search
+  `migrated` to domain crons. `ddproperty_condos` remains
+  blocked (the `flight_prices` job and the travel lane were removed on
+  2026-10-23 when the flights data product was retired in
+  data-product-contracts-v4), while `property_social_leads` is planned behind an official search
   API storage-rights gate. The former `money_opportunities` cross-source lane
   was retired with the shared opportunity synthesis and is no longer scheduled.
 - Domain adapters also live in sibling repos with their own crons.
-- `config/source_coverage.yaml` tracks 25 jobs across 11 business lanes and
+- `config/source_coverage.yaml` tracks 22 jobs across 10 business lanes and
   orders acquisition as API/CLI/RSS before scraping, with a priority queue for
   missing adapters.
 - Property/social captures use `property.v1`; rows remain `pending` and

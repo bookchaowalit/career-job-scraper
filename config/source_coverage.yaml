@@ -57,10 +57,6 @@ business_lanes:
     priority: P2
     purpose: "AI tool and product discovery"
     contract: ai-tool-capture
-  travel:
-    priority: P2
-    purpose: "Flight and route price intelligence"
-    contract: travel-capture
   operations:
     priority: P0
     purpose: "Collection health and operational visibility"
@@ -382,21 +378,6 @@ sources:
     contract: finance-capture
     owner_repository: book-defi-data
     next_action: "Collected by book-defi-data/scripts/run_defi.py on the domain cron. Keep this local job disabled."
-
-  - job: flight_prices
-    business: travel
-    source: Kiwi Tequila flight search API
-    url: "https://api.tequila.kiwi.com/v2/search"
-    channel: api
-    engine: firecrawl+httpx
-    schedule: "0 7 * * 1"
-    module: scripts.scrape_flight_prices
-    status: blocked
-    priority: P2
-    business_value: medium
-    contract: travel-capture
-    owner_repository: book-flight-data
-    next_action: "Implement API adapter only after provider credential and route-budget review."
 
   - job: job_match_filter
     business: jobs

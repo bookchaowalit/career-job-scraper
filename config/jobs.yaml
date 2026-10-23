@@ -439,27 +439,6 @@ jobs:
       max_age_hours: 24
       output_stem: defi_yields
 
-  # ── FLIGHT PRICES (daily) ──────────────────────────────────
-  - name: flight_prices
-    category: travel
-    engine: firecrawl+httpx
-    url: "https://api.tequila.kiwi.com/v2/search"
-    schedule: "0 7 * * 1"
-    enabled: false  # disabled: scripts.scrape_flight_prices is not present in this checkout
-    rate_limit: 10.0
-    scraper_module: "scripts.scrape_flight_prices"
-    scraper_class: "FlightPriceScraper"
-    params:
-      origin: BKK
-      routes:
-        - BKK-SIN
-        - BKK-TYO
-        - BKK-HKG
-        - BKK-ICN
-        - BKK-KUL
-      days_ahead: 30
-      alert_drop_pct: 15.0
-
   # Public company ATS capture; collection only, no application submission.
   - name: career_postings
     category: sales
