@@ -16,14 +16,17 @@ concurrency:
 
 jobs:
   scraper:
-    uses: bookchaowalit/platform-ci-workflows/.github/workflows/ci-python.yml@c37ef9d113eefb3ed45429717cb7ca201192c3fc # v1.0.1
+    uses: bookchaowalit/platform-ci-workflows/.github/workflows/ci-python.yml@87dc5e1c7e0416886a6371d5a101bb2ccba38edd # v1.1.1
     with:
-      python-version: "3.11" # constraints.txt is the reproducible Python 3.11 resolution
+      python-version: "3.11" # runtime of the scheduled capture; install is `uv sync --frozen` (uv.lock)
       # Formatting the code base would rewrite ~195 files (~18k lines) and move every existing
       # Semgrep finding; left for a dedicated change. Lint scope: see ruff.toml.
       format-check: false
-      # Offline suite (fixtures only, network guard in tests/conftest.py).
-      test-command: PYTHONUTF8=1 python -m pytest -q
+      # mypy reads `files` from [tool.mypy] (capture path + core); `mypy .` would ignore that scope.
+      typecheck-command: mypy
+      # Offline suite (fixtures only, network guard in tests/conftest.py), under coverage for the gate.
+      test-command: PYTHONUTF8=1 python -m pytest -q --cov --cov-report=
+      coverage-threshold: "46" # measured 46.70% over every .py file (2026-10-23); ratchet up
 
   # The runtime host is Windows (ops/windows/scheduled-task.ps1). Exercise the
   # scheduler-critical, stdlib-only paths there: msvcrt file lock, per-step
@@ -48,4 +51,4 @@ jobs:
         run: python -m pytest -q tests/test_file_lock.py tests/test_scheduled_run.py tests/test_atomic_writes.py
 
   security:
-    uses: bookchaowalit/platform-ci-workflows/.github/workflows/security.yml@c37ef9d113eefb3ed45429717cb7ca201192c3fc # v1.0.1
+    uses: bookchaowalit/platform-ci-workflows/.github/workflows/security.yml@87dc5e1c7e0416886a6371d5a101bb2ccba38edd # v1.1.1

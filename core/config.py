@@ -32,7 +32,7 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
 
-def send_telegram(message: str, chat_id: str = None) -> bool:
+def send_telegram(message: str, chat_id: str | None = None) -> bool:
     """Send a Telegram message. Returns True on success."""
     token = TELEGRAM_BOT_TOKEN
     chat = chat_id or TELEGRAM_CHAT_ID

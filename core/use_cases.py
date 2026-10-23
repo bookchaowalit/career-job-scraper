@@ -3,7 +3,7 @@ Core use cases — business logic orchestration.
 These coordinate the scraping pipeline: fetch → clean → dedup → export.
 """
 import time
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from .models import ScrapedItem, ScrapeJob, ScrapeResult
 from .ports import ScraperPort, ExporterPort, StoragePort
 
@@ -167,7 +167,7 @@ class SearchUseCase:
     ) -> List[ScrapedItem]:
         """Search product listings."""
         limit = max(0, limit)
-        filters = {}
+        filters: Dict[str, Any] = {}
         if keyword:
             filters["name_contains"] = keyword
         if max_price is not None:  # 0 is a valid (if strict) ceiling

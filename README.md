@@ -981,9 +981,17 @@ python scripts/send_application_emails.py
 
 ## Reproducible offline checks
 
-Use a project virtual environment and the committed constraints; both runtime
-and test dependencies are pinned in `constraints.txt` (Python 3.11 CI). The
-Windows timezone dependency remains conditional in `requirements.txt`.
+`uv.lock` is the reproducible resolution (CI and the hosted capture run
+`uv sync --frozen`, Python 3.11). `constraints.txt` is exported from it for the
+pip path (Windows host); `pyproject.toml` and `requirements.txt` list the same
+dependencies. Checks CI runs: `ruff check .`, `mypy` (scope in `[tool.mypy]`:
+capture path + `core/`), `pytest` under a coverage gate.
+
+```bash
+uv sync --frozen && uv run ruff check . && uv run mypy && uv run pytest -q
+```
+
+pip alternative:
 
 ```bash
 python -m pip install -r requirements-dev.txt

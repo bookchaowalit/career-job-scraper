@@ -1,55 +1,189 @@
-# Reproducible Python 3.11 development/runtime resolution (2026-10-15).
-# Regenerate deliberately from requirements.txt + pytest + ruff + tzdata.
-# tzdata is installed only on Windows through requirements.txt.
+# Exported from uv.lock (source of truth); regenerate, never hand-edit:
+#   uv lock && uv export --frozen --no-hashes --no-emit-project --all-groups -o constraints.txt
+# Used by the pip path: Windows host (ops/windows) and the CI Windows scheduler job.
 aiohappyeyeballs==2.7.1
+    # via aiohttp
 aiohttp==3.14.5
+    # via
+    #   career-job-scraper
+    #   firecrawl-py
 aiosignal==1.4.0
+    # via aiohttp
 annotated-types==0.8.0
+    # via pydantic
 anyio==4.15.1
+    # via
+    #   career-job-scraper
+    #   httpx
+ast-serialize==0.13.1
+    # via mypy
 attrs==26.1.0
+    # via
+    #   aiohttp
+    #   outcome
+    #   trio
 beautifulsoup4==4.15.0
-certifi==2026.10.19
+    # via career-job-scraper
+certifi==2026.10.23
+    # via
+    #   career-job-scraper
+    #   firecrawl-py
+    #   httpcore
+    #   httpx
+    #   requests
+    #   selenium
+    #   sentry-sdk
+cffi==2.1.1 ; implementation_name != 'pypy' and os_name == 'nt'
+    # via trio
 charset-normalizer==3.5.2
+    # via requests
+colorama==0.4.6 ; sys_platform == 'win32'
+    # via pytest
+coverage==7.17.0
+    # via pytest-cov
 dnspython==2.9.0
+    # via career-job-scraper
 feedparser==6.0.14
+    # via career-job-scraper
 feedparser-sgmllib==2.1.0
-firecrawl-py==4.50.0
+    # via feedparser
+firecrawl-py==4.54.0
+    # via career-job-scraper
 frozenlist==1.8.0
+    # via
+    #   aiohttp
+    #   aiosignal
 greenlet==3.5.6
+    # via playwright
 h11==0.16.0
+    # via
+    #   httpcore
+    #   wsproto
 httpcore==1.0.9
+    # via httpx
 httpx==0.28.1
+    # via
+    #   career-job-scraper
+    #   firecrawl-py
 idna==3.20
+    # via
+    #   anyio
+    #   career-job-scraper
+    #   httpx
+    #   requests
+    #   trio
+    #   yarl
 iniconfig==2.3.1
+    # via pytest
+librt==0.16.0 ; platform_python_implementation != 'PyPy'
+    # via mypy
 lxml==6.1.3
+    # via career-job-scraper
 multidict==7.1.0
+    # via
+    #   aiohttp
+    #   yarl
+mypy==2.4.0
+mypy-extensions==1.1.0
+    # via mypy
 nest-asyncio==1.6.0
+    # via firecrawl-py
 outcome==1.3.0.post0
+    # via
+    #   trio
+    #   trio-websocket
 packaging==26.3
-playwright==1.64.0
-pluggy==1.6.0
+    # via pytest
+pathspec==1.1.1
+    # via mypy
+playwright==1.64.1
+    # via career-job-scraper
+pluggy==1.7.0
+    # via
+    #   pytest
+    #   pytest-cov
 propcache==0.5.4
+    # via
+    #   aiohttp
+    #   yarl
+pycparser==3.12 ; implementation_name != 'PyPy' and implementation_name != 'pypy' and os_name == 'nt'
+    # via cffi
 pydantic==2.14.1
+    # via firecrawl-py
 pydantic-core==2.50.1
-pyee==13.0.1
+    # via pydantic
+pyee==13.0.1 ; python_full_version < '3.12'
+    # via playwright
+pyee==14.0.0 ; python_full_version >= '3.12'
+    # via playwright
 pygments==2.21.0
+    # via pytest
 pysocks==1.7.1
+    # via urllib3
 pytest==9.1.1
+    # via pytest-cov
+pytest-cov==7.1.0
 python-dotenv==1.2.4
+    # via
+    #   career-job-scraper
+    #   firecrawl-py
 pyyaml==6.0.3
+    # via career-job-scraper
 requests==2.34.2
-ruff==0.17.0
+    # via
+    #   career-job-scraper
+    #   firecrawl-py
+ruff==0.17.2
 selenium==4.51.0
+    # via career-job-scraper
+sentry-sdk==2.73.0
+    # via career-job-scraper
 sniffio==1.3.1
+    # via trio
 sortedcontainers==2.4.0
-soupsieve==2.10
+    # via trio
+soupsieve==2.10 ; python_full_version < '3.11.5'
+    # via beautifulsoup4
+soupsieve==3.0.4 ; python_full_version >= '3.11.5'
+    # via beautifulsoup4
 trio==0.34.0
+    # via
+    #   selenium
+    #   trio-websocket
 trio-websocket==0.12.2
+    # via selenium
+types-pyyaml==6.0.12.20260906
+types-requests==2.33.0.20261006
 typing-extensions==4.16.0
+    # via
+    #   aiohttp
+    #   aiosignal
+    #   anyio
+    #   beautifulsoup4
+    #   mypy
+    #   pydantic
+    #   pydantic-core
+    #   pyee
+    #   selenium
+    #   typing-inspection
 typing-inspection==0.4.4
-tzdata==2026.5
+    # via pydantic
+tzdata==2026.5 ; sys_platform == 'win32'
+    # via career-job-scraper
 urllib3==2.8.0
+    # via
+    #   career-job-scraper
+    #   requests
+    #   selenium
+    #   sentry-sdk
+    #   types-requests
 websocket-client==1.9.2
-websockets==17.2
+    # via selenium
+websockets==17.3
+    # via
+    #   career-job-scraper
+    #   firecrawl-py
 wsproto==1.3.2
+    # via trio-websocket
 yarl==1.25.1
+    # via aiohttp

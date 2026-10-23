@@ -13,3 +13,7 @@ node_modules/
 
 # Chrome extension build artifacts
 chrome-extension/dist/
+
+# Coverage data
+.coverage
+.coverage.*

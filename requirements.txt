@@ -1,4 +1,5 @@
 # Book Scraping Platform — Python Dependencies
+# Mirror of pyproject.toml [project].dependencies for the pip path; uv.lock is the resolution.
 -c constraints.txt
 # Install into a project venv only (do not use system Python):
 #   python3 -m venv .venv && . .venv/bin/activate
@@ -27,6 +28,9 @@ firecrawl-py>=1.0.0
 # ── Data processing ────────────────────────────────
 pyyaml>=6.0
 
+# ── Error reporting (scheduled capture; no-op without SENTRY_DSN) ──
+sentry-sdk>=2.73.0
+
 # ── Transitive floors (security) ──────────────────
 # constraints.txt already pins newer versions; these floors keep any resolution
 # without the constraints file above the published advisories.
@@ -34,6 +38,7 @@ aiohttp>=3.13.4
 anyio>=4.14.2
 certifi>=2026.10.19  # PYSEC-2026-4320: compromised emSign intermediates
 idna>=3.15
+urllib3>=2.8.0
 
 # ── Windows runtime ────────────────────────────────
 # zoneinfo has no system tz database on Windows.

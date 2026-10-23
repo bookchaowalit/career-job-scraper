@@ -63,6 +63,7 @@ The installed command runs `main.py run` and then
 `.github/workflows/scheduled-capture.yml` runs at minute 17 every 6 hours
 (UTC) and on manual dispatch:
 
+0. Dependencies install with `uv sync --frozen --no-dev` from `uv.lock`.
 1. `scripts/cloud_capture.py` runs `job_postings`, `career_postings` and
    `job_match_filter` once. Job output goes to `data/logs/cloud-capture.log`,
    which is never uploaded, because the Actions log of this public repo is
@@ -75,6 +76,14 @@ The installed command runs `main.py run` and then
    ingested.
 4. The run posts `ok` or the failed steps to the uptime Worker heartbeat
    `job-capture` (alert after 13 h of silence, or at once on a failure).
+5. With the `SENTRY_DSN` repo secret set, exceptions and failed jobs go to
+   Sentry (org `personal-yu0`) through `scripts/_sentry.py`: errors only,
+   allowlist scrub (no request/user/extra/breadcrumbs/frame locals, URL queries
+   stripped, secrets masked). This repo owns its copy, adapted from
+   book-job-data's `_sentry.py` and the shared `sentry-ref/sentry.ts`
+   allowlist. Without the secret nothing is sent.
+
+Spec: `specs/cloud-capture-pipeline.md`. KPIs: `docs/measurement/KPI-PLAN.md`.
 
 No Telegram job alerts are sent from this run: Railway `income-pipeline/job-radar`
 already alerts hourly on the overlapping remote boards.

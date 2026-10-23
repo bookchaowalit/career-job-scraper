@@ -3,6 +3,7 @@ import io
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from contextlib import redirect_stdout
 from pathlib import Path
 
@@ -103,6 +104,55 @@ class RunTest(unittest.TestCase):
 
         self.assertEqual(cloud_capture.run([_job("job_postings")], boom, log_path=self.log), 1)
         self.assertEqual(cloud_capture.run([_job("job_postings")], skipped, log_path=self.log), 1)
+
+
+class ErrorReportingTest(unittest.TestCase):
+    """Failures reach Sentry (private); the public console still gets counts only."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+        self.log = Path(self._tmp.name) / "logs" / "cloud-capture.log"
+        self.reported = []
+        patches = [
+            mock.patch.object(cloud_capture._sentry, "capture_exception", lambda exc: self.reported.append(exc)),
+            mock.patch.object(
+                cloud_capture._sentry, "capture_failure", lambda name, error: self.reported.append((name, error))
+            ),
+        ]
+        for patch in patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_an_exception_is_reported_with_the_original_exception(self):
+        error = RuntimeError("network down")
+
+        async def boom(job):
+            raise error
+
+        cloud_capture.run([_job("job_postings")], boom, log_path=self.log)
+        self.assertEqual(self.reported, [error])
+
+    def test_a_failed_or_skipped_result_is_reported_by_job_name(self):
+        async def failed(job):
+            if job.name == "job_postings":
+                return _Result(False, errors=["board unavailable", "timeout"])
+            return None
+
+        cloud_capture.run([_job("job_postings"), _job("career_postings")], failed, log_path=self.log)
+        self.assertEqual(
+            self.reported,
+            [("job_postings", "board unavailable; timeout"), ("career_postings", "skipped (engine unavailable)")],
+        )
+
+    def test_a_successful_run_reports_nothing(self):
+        async def ok(job):
+            return _Result(True, scraped=2, new=0)
+
+        self.assertEqual(cloud_capture.run([_job("job_postings")], ok, log_path=self.log), 0)
+        self.assertEqual(self.reported, [])
 
 
 class IngestInputsTest(unittest.TestCase):

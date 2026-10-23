@@ -82,6 +82,17 @@ gates stay unit-testable.
 
 Full detail: [`SAFETY.md`](./SAFETY.md).
 
+## Hosted capture (2026-10-23)
+
+- Since 2026-10-21, `.github/workflows/scheduled-capture.yml` runs
+  `job_postings`, `career_postings` and `job_match_filter` every 6 hours on
+  GitHub Actions and ingests the CSVs into R2 for `book-job-data-api`
+  (Track B). The public log shows counts only. Failures reach Telegram via the
+  uptime heartbeat `job-capture` and Sentry (`career-job-scraper`, errors
+  only, allowlist scrub in `scripts/_sentry.py`).
+- Spec: [`specs/cloud-capture-pipeline.md`](specs/cloud-capture-pipeline.md);
+  KPIs and baselines: [`docs/measurement/KPI-PLAN.md`](docs/measurement/KPI-PLAN.md).
+
 ## Current runtime state (2026-09-30)
 
 - The host moved from Linux to Windows. Collection runs every five minutes

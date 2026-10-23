@@ -1,0 +1,82 @@
+# Project metadata for uv (uv.lock is the reproducible resolution used by CI and the
+# scheduled capture). requirements.txt + constraints.txt stay for the pip-based Windows
+# host (ops/windows); constraints.txt is exported from uv.lock, so both agree.
+#   uv lock && uv export --frozen --no-hashes --no-emit-project --all-groups -o constraints.txt
+[project]
+name = "career-job-scraper"
+version = "0.1.0"
+description = "Job discovery and career pipeline scrapers (Track B hosted capture of the job system)."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+dependencies = [
+    # Core HTTP engines
+    "httpx>=0.27.0",
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.0",
+    "lxml>=5.0.0",
+    "python-dotenv>=1.0.0",
+    "websockets>=12.0",
+    "dnspython>=2.4.0",
+    # Browser automation
+    "playwright>=1.40.0",
+    "selenium>=4.15.0",
+    # RSS/Atom feeds
+    "feedparser>=6.0.0",
+    # AI-powered scraping
+    "firecrawl-py>=1.0.0",
+    # Data processing
+    "pyyaml>=6.0",
+    # Error reporting for the scheduled capture (no-op without SENTRY_DSN; scripts/_sentry.py)
+    "sentry-sdk>=2.73.0",
+    # Transitive floors (security advisories)
+    "aiohttp>=3.13.4",
+    "anyio>=4.14.2",
+    "certifi>=2026.10.19",  # PYSEC-2026-4320
+    "idna>=3.15",
+    "urllib3>=2.8.0",
+    # zoneinfo has no system tz database on Windows
+    "tzdata>=2024.1; sys_platform == 'win32'",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.17.0",
+    "mypy>=2.4.0",
+    "types-PyYAML",
+    "types-requests",
+]
+
+[tool.uv]
+# Scripts, not an installable package.
+package = false
+
+# Type checking (CI runs `mypy`, which reads `files` below).
+# Scope: the hosted capture path (.github/workflows/scheduled-capture.yml) and the
+# hexagonal core it runs through. The ~150 other scripts and the legacy engines/adapters
+# are not type-clean yet; they are followed for imports but not reported
+# (follow_imports = "silent"). Widen `files` as modules are cleaned up.
+[tool.mypy]
+python_version = "3.11"
+files = [
+    "scripts/cloud_capture.py",
+    "scripts/_sentry.py",
+    "scripts/repo_paths.py",
+    "core",
+]
+mypy_path = ".:scripts"
+explicit_package_bases = true
+follow_imports = "silent"
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+strict_equality = true
+
+# Coverage over every Python file in the repo (unimported ones count as 0%), not tests.
+[tool.coverage.run]
+source = ["."]
+omit = ["tests/*", ".venv/*"]

@@ -128,7 +128,7 @@ class DataCleaner:
 
     def _normalize_item(self, item: dict) -> dict:
         """Normalize all string fields in an item."""
-        normalized = {}
+        normalized: dict[str, Any] = {}
         for key, value in item.items():
             if isinstance(value, str):
                 normalized[key] = self._normalize_string(value)

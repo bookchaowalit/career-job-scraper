@@ -11,6 +11,8 @@ The repository is public, so the Actions log is public too:
 * ``job_match_filter`` runs with ``seed_tracker`` off: the private
   ``apply_tracker.csv`` stays a local-only file.
 * No Telegram alerts: Railway job-radar already alerts on the same boards.
+* Failures go to Sentry when SENTRY_DSN is set (scripts/_sentry.py: errors only,
+  allowlist scrub); without it nothing is sent.
 
 Usage:
   python scripts/cloud_capture.py           # run the jobs; exit 1 if any failed
@@ -25,11 +27,12 @@ import sys
 from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
-from typing import Awaitable, Callable, Iterator, Sequence
+from typing import Any, Callable, Coroutine, Iterator, Sequence
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import _sentry  # noqa: E402
 from repo_paths import DATA_DIR  # noqa: E402
 
 CLOUD_JOBS = ("job_postings", "career_postings", "job_match_filter")
@@ -39,7 +42,7 @@ LOG_FILE = DATA_DIR / "logs" / "cloud-capture.log"
 ERROR_CHARS = 200
 
 
-def cloud_jobs(jobs: dict) -> list:
+def cloud_jobs(jobs: dict[str, Any]) -> list[Any]:
     """The configured jobs to run, with hosted-run overrides on copies."""
     return [
         replace(jobs[name], params={**(jobs[name].params or {}), **PARAM_OVERRIDES.get(name, {})})
@@ -75,25 +78,28 @@ def _to_log(log_path: Path) -> Iterator[None]:
 
 
 def run(
-    jobs: Sequence,
-    execute: Callable[[object], Awaitable[object]],
+    jobs: Sequence[Any],
+    execute: Callable[[Any], Coroutine[Any, Any, Any]],
     *,
     log_path: Path = LOG_FILE,
 ) -> int:
     code = 0
     for job in jobs:
-        error = None
+        error: str | None = None
+        result: Any = None
         try:
             with _to_log(log_path):
                 result = asyncio.run(execute(job))
         except Exception as exc:  # one broken job must not stop the rest
             result, error = None, f"{type(exc).__name__}: {exc}"
+            _sentry.capture_exception(exc)
         if result is not None and result.success:
             print(f"{job.name}: ok scraped={result.items_scraped} new={result.items_new}", flush=True)
             continue
         code = 1
         if error is None:
             error = "; ".join(result.errors) if result is not None else "skipped (engine unavailable)"
+            _sentry.capture_failure(job.name, error)
         print(f"{job.name}: failed: {error[:ERROR_CHARS]}", flush=True)
     return code
 
@@ -107,13 +113,21 @@ def main(argv: list[str] | None = None) -> int:
             print(path)
         return 0
 
+    _sentry.init_sentry()
+    try:
+        return _capture()
+    finally:
+        _sentry.flush()
+
+
+def _capture() -> int:
     with _to_log(LOG_FILE):  # main.py configures logging handlers on import
         import main as scraper_main
 
         scheduler, engine, _exporter, _storage, use_case = scraper_main.build_system()
     jobs = cloud_jobs(scheduler.jobs)
 
-    async def execute(job):
+    async def execute(job: Any) -> Any:
         result = await scraper_main.execute_job(job, use_case, engine)
         if result is not None:
             scheduler.mark_completed(job.name, result)
