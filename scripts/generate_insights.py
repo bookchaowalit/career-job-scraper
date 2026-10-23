@@ -197,11 +197,14 @@ def extract_crypto_insights(latest: list, history: list) -> list:
         gainers = [m for m in top3 if m["change_pct"] > 0]
         losers = [m for m in top3 if m["change_pct"] < 0]
         if gainers and losers:
+            # Joined outside the f-string: nested same-quote f-strings need Python 3.12.
+            top_gainers = ", ".join(f"{m['coin']} (+{m['change_pct']:.1f}%)" for m in gainers[:2])
+            top_losers = ", ".join(f"{m['coin']} ({m['change_pct']:.1f}%)" for m in losers[:2])
             insights.append({
                 "type": "market_summary",
                 "title": "Mixed crypto market — winners and losers",
-                "narrative": f"Top gainers: {', '.join(f'{m['coin']} (+{m['change_pct']:.1f}%)' for m in gainers[:2])}. "
-                            f"Top losers: {', '.join(f'{m['coin']} ({m['change_pct']:.1f}%)' for m in losers[:2])}.",
+                "narrative": f"Top gainers: {top_gainers}. "
+                            f"Top losers: {top_losers}.",
                 "data_points": {"gainers": gainers[:2], "losers": losers[:2]},
                 "actionability": 50,
                 "content_hook": "📊 Crypto market update — who's up, who's down",
@@ -563,10 +566,11 @@ def extract_exchange_rate_insights(latest: list, history: list) -> list:
                 continue
 
     if thb_rates:
+        rates_text = ", ".join(f"{r['currency']}={r['rate']:.4f}" for r in thb_rates[:5])
         insights.append({
             "type": "rate_snapshot",
             "title": f"THB exchange rates: {len(thb_rates)} currencies tracked",
-            "narrative": f"Current THB rates: {', '.join(f'{r['currency']}={r['rate']:.4f}' for r in thb_rates[:5])}.",
+            "narrative": f"Current THB rates: {rates_text}.",
             "data_points": {"rates": thb_rates},
             "actionability": 40,
             "content_hook": f"💱 THB update: {thb_rates[0]['currency']} at {thb_rates[0]['rate']:.4f}",
