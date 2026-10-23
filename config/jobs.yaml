@@ -397,7 +397,7 @@ jobs:
     engine: httpx
     url: "https://www.futurepedia.io/ai-tools"
     schedule: "0 11 * * *"
-    enabled: false  # migrated: book-ai-tools-data cron owns this feed
+    enabled: false  # retired 2026-10-23 with the ai_tools data product (data-product-contracts-v3); nothing collects this feed
     rate_limit: 4.0
     scraper_module: "scripts.scrape_ai_tools"
     scraper_class: "AIToolScraper"

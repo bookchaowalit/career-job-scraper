@@ -361,12 +361,12 @@ sources:
     engine: httpx
     schedule: "0 11 * * *"
     module: scripts.scrape_ai_tools
-    status: migrated
+    status: migrated  # successor retired 2026-10-23 (see next_action)
     priority: P2
     business_value: medium
     contract: ai-tool-capture
     owner_repository: book-ai-tools-data
-    next_action: "Collected by book-ai-tools-data/scripts/run_ai_tools.py on the domain cron. Keep this local job disabled."
+    next_action: "Retired 2026-10-23: the ai_tools data product was retired in data-product-contracts-v3 (owner approved) and book-ai-tools-data (bookchaowalit/tech-ai-tools-data) is to be archived. Keep this local job disabled; nothing collects this feed."
 
   - job: defi_yields
     business: finance

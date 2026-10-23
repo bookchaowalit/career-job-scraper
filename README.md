@@ -106,7 +106,7 @@ The scheduler state is written to `data/schedule_state.json`.
 | `hackernews` | discovery | httpx | Daily 9:00 AM | enabled |
 | `devto_articles` | discovery | httpx | Daily 10:00 AM | enabled |
 | `producthunt_top` | discovery | httpx | Daily 11:00 AM | enabled |
-| `ai_tools` | ai | Futurepedia HTML | Daily 11:00 AM | migrated to book-ai-tools-data |
+| `ai_tools` | ai | Futurepedia HTML | Daily 11:00 AM | disabled; retired 2026-10-23 with the ai_tools data product |
 | `property_listings` | property | firecrawl + bounded public fallback | Daily 9:00 AM | enabled (degraded: direct DDproperty 403; fallback only) |
 | `property_social_leads` | property | Brave Search API public index (no social login) | Every 6 hours | conditional / disabled |
 | `tgcondo_condo_rent` | property | TG Condo public RSS | Every 6 hours | planned / disabled pending terms review |
