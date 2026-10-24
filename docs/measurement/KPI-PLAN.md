@@ -2,7 +2,7 @@
 title: BJS — KPI and Instrumentation Plan (hosted capture, Track B)
 created: 2026-10-23
 updated: 2026-10-23
-status: draft
+status: approved
 template: architecture-docs templates/sdlc/kpi-and-instrumentation-plan.md
 related: [../../specs/cloud-capture-pipeline.md, ../../RUNBOOK.md, ../../DOCPACK/05-srs.md]
 ---
@@ -28,7 +28,7 @@ counts-only log, the heartbeat, the R2 dataset read by `book-job-data-api`).
 | Status | draft — KPIs defined, partly instrumented (see "Status" column) |
 | Metric owner | Owner (solo) |
 | AI maker | Claude Code (Big Loop code-gaps batch, 2026-10-23) |
-| AI reviewer | Not yet reviewed by a second agent |
+| AI reviewer | independent Claude reviewer subagent (`solo:solo-reviewer`, Sonnet, read-only, no maker context), 2026-10-24: approved (see Approval) |
 | Objectives | OBJ-01 fresh job postings in the lake for matching; OBJ-02 the hosted run stays cheap and quiet (no private data, no alert noise) |
 | Data source of truth | GitHub Actions run history + run logs of `scheduled-capture.yml`; R2 `portfolio-demo/book-job-data-001` via `book-job-data-api` `GET /v1/metadata` |
 | Dashboard | None yet. Uptime Worker heartbeat `job-capture` is the only alerting surface |
@@ -103,3 +103,12 @@ GitHub default (90 days); Sentry free plan retention applies to error events.
 | Date | KPI ID | Change | Reason | Baseline restated? | Approved by |
 |---|---|---|---|---|---|
 | 2026-10-23 | all | First version | Big Loop L3 | n/a | pending owner |
+
+## Approval (2026-10-24)
+
+| Field | Value |
+|---|---|
+| Checker | independent Claude reviewer subagent (`solo:solo-reviewer`, Sonnet, read-only, no maker context) |
+| Approver | AI approval under the owner's process (approvals by the owner or AI with evidence; maker and checker are different agents). Recorded by Claude session oa-remainder on the owner's instruction "ทำที่เหลือให้หน่อย" (2026-10-24) |
+| Verdict | **approved** |
+| Evidence | scheduled-capture.yml cron 17 */6, heartbeat ok/failed, SENTRY_DSN; cloud_capture.py output; scripts/_sentry.py send_default_pii=False; SPEC-CAP-04..08 and tests/test_cloud_capture.py; no-dashboard gap stated. |
