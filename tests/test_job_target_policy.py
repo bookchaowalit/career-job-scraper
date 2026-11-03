@@ -433,7 +433,9 @@ class JobTargetPolicyTests(unittest.TestCase):
         jobs = {job["name"]: job for job in config["jobs"]}
         boards = set(jobs["job_postings"]["params"]["boards"])
         self.assertIn("peopleperhour", boards)
-        self.assertIn("fastwork", boards)
+        # fastwork removed by the owner 2026-11-03: JS-only search page, and it
+        # lists freelancers' service offers, not client job postings.
+        self.assertNotIn("fastwork", boards)
         self.assertNotIn("jobthai", boards)
         self.assertNotIn("jobbkk", boards)
         self.assertEqual(jobs["job_match_filter"]["schedule"], "0 */6 * * *")
