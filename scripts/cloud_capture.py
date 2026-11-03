@@ -95,6 +95,14 @@ def run(
             _sentry.capture_exception(exc)
         if result is not None and result.success:
             print(f"{job.name}: ok scraped={result.items_scraped} new={result.items_new}", flush=True)
+            # Counts and public host names only, so a board that went quiet shows up.
+            board_counts = getattr(result, "board_counts", None) or {}
+            if board_counts:
+                counts = " ".join(f"{board}={count}" for board, count in sorted(board_counts.items()))
+                print(f"{job.name} boards: {counts}", flush=True)
+            down_hosts = getattr(result, "down_hosts", None) or []
+            if down_hosts:
+                print(f"{job.name} hosts down: {', '.join(sorted(down_hosts))}", flush=True)
             continue
         code = 1
         if error is None:

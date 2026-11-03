@@ -80,6 +80,21 @@ class RunTest(unittest.TestCase):
         self.assertIn("PRIVATE stdout", log)
         self.assertIn("PRIVATE stderr", log)
 
+    def test_per_board_counts_and_down_hosts_reach_the_public_log(self):
+        # Counts and public host names only: enough to see a board that went
+        # quiet (PeoplePerHour returned nothing from the runner on 2026-11-03).
+        async def execute(job):
+            result = _Result(True, scraped=7, new=3)
+            result.board_counts = {"remoteok": 16, "peopleperhour": 0, "himalayas": 40}
+            result.down_hosts = ["www.peopleperhour.com"]
+            return result
+
+        console = io.StringIO()
+        with redirect_stdout(console):
+            cloud_capture.run([_job("job_postings")], execute, log_path=self.log)
+        self.assertIn("job_postings boards: himalayas=40 peopleperhour=0 remoteok=16", console.getvalue())
+        self.assertIn("job_postings hosts down: www.peopleperhour.com", console.getvalue())
+
     def test_a_failed_job_fails_the_run_but_later_jobs_still_run(self):
         ran = []
 
