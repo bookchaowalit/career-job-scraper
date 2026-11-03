@@ -32,12 +32,15 @@ flowchart TD
   B --> C{"Popup Save or context menu?"}
   C -->|"saveJob / quickSave"| D["background.js stores row in chrome.storage.local savedJobs"]
   D --> E["Popup stats: today saved, total, applied"]
-  E --> F{"Cloud upload enabled in options?"}
-  F -->|"no, default"| G["Stay local"]
-  F -->|"yes"| H["Upload exported CSV to own Drive, Dropbox or OneDrive"]
+  D --> F{"10 or more saved rows?"}
+  F -->|"yes"| G["exportToCSV: writes lastExport to chrome.storage.local only"]
+  F -->|"no"| H["Stay local"]
+  G --> H
 ```
 
-Sources: `chrome-extension/manifest.json`, `chrome-extension/background.js`, `chrome-extension/popup.js`, `chrome-extension/cloud.js`
+Sources: `chrome-extension/manifest.json`, `chrome-extension/background.js` (`saveJob` / `quickSave` → `exportToCSV()`; `cloud.uploadExport()` is called only for property and Facebook exports, lines 148 and 448), `chrome-extension/popup.js`, `chrome-extension/cloud.js`
+
+หมายเหตุ: job ที่บันทึกไม่ถูก upload ขึ้น cloud แม้เปิด cloud upload ไว้ — ข้อมูล job อยู่ในเครื่องเท่านั้น
 
 ## Flow C — Operator: Facebook Group posts to review queue
 
@@ -51,11 +54,17 @@ flowchart TD
   E --> F["Save or Export CSV"]
   F --> G{"Sheet sink enabled?"}
   G -->|"yes"| H["Send only public rows to own Apps Script web app"]
-  G -->|"no"| I["CSV download only"]
+  G -->|"no"| I["No Sheet send"]
+  F --> CU{"Cloud auto-upload enabled?"}
+  CU -->|"yes"| CU1["cloud.uploadExport: full CSV incl. private and unknown rows to own Drive, Dropbox or OneDrive"]
+  CU -->|"no"| CU2["CSV download only, stays on this machine"]
   F --> J["import_facebook_group_posts.py offline"]
-  J --> K{"public and complete?"}
+  J --> K{"visibility public and has text?"}
   K -->|"no"| L["Quarantine row"]
-  K -->|"yes"| M["Review queue: review_decision pending, outreach not_contacted"]
+  K -->|"yes"| K2{"text_complete?"}
+  K2 -->|"yes"| M["Review queue: review_decision pending, outreach not_contacted"]
+  K2 -->|"no"| M2["Accepted with lead_review_status needs_human_review"]
+  M2 --> M
   M --> N["review_facebook_group_posts.py with reviewer ID"]
 ```
 

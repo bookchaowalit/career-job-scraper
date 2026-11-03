@@ -23,9 +23,9 @@ Sources: `scripts/job_target_policy.py`, `scripts/filter_job_matches.py`, `confi
 stateDiagram-v2
   [*] --> discovered: auto_seed_tracker, PASS only
   discovered --> packet: application_review build
-  packet --> prepared: prepare, hashes stored
-  prepared --> prepared_approved: prepare --owner-approved
-  prepared --> [*]: not approved, nothing sent
+  packet --> prepared_approved: prepare --owner-approved, hashes stored
+  packet --> prepared: prepare without approval, hashes stored
+  prepared --> [*]: not approved, nothing sent; a second prepare in the same directory fails with Prepared packet already exists, so approval needs a new review directory
   prepared_approved --> submitted: record-submission with receipt
   submitted --> followup_due: followup_date = submitted_at + 7 days
 ```
