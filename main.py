@@ -129,11 +129,19 @@ async def execute_job(job, use_case, engine):
             counted = [r for r in results if isinstance(r, dict) and "count" in r]
             scraped = sum(int(r["count"]) for r in counted) if counted else len(results)
             new = sum(int(r.get("new", r["count"])) for r in counted) if counted else len(results)
+            per_board: dict = {}
+            hosts_down: set = set()
+            for r in counted:
+                for board, count in (r.get("per_board") or {}).items():
+                    per_board[board] = per_board.get(board, 0) + int(count)
+                hosts_down.update(r.get("down_hosts") or [])
 
             class CatResult:
                 success = True
                 items_scraped = scraped
                 items_new = new
+                board_counts = per_board
+                down_hosts = sorted(hosts_down)
                 items_cleaned = scraped
                 duration_seconds = 0.0
                 exported_to = []
