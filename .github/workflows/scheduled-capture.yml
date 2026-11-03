@@ -11,8 +11,7 @@
 name: Scheduled capture and deploy to R2 (Track B)
 
 on:
-  schedule:
-    - cron: "17 */6 * * *"
+  # Scheduled by the jobs queue (platform-jobs-worker job `career-job-capture`, cron "17 */6 * * *" UTC), ADR-0008.
   workflow_dispatch:
 
 permissions:
