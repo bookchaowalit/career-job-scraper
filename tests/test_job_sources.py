@@ -67,6 +67,27 @@ class RemoteOKTests(unittest.TestCase):
         self.assertEqual(python_jobs[0]["location"], "Remote")
 
 
+class RunCacheTests(unittest.TestCase):
+    def tearDown(self):
+        scraper._REMOTEOK_CACHE = None
+        scraper._PEOPLEPERHOUR_CACHE = None
+
+    def test_each_scraper_run_fetches_fresh_feeds(self):
+        # A long-lived scheduler process calls main() every 6 h; module caches
+        # must not carry the first run's feed into later runs.
+        scraper._REMOTEOK_CACHE = [{"position": "Stale Python Job", "url": "https://remoteok.com/old", "tags": []}]
+        scraper._PEOPLEPERHOUR_CACHE = [{"title": "stale", "url": "u", "context": ""}]
+        with mock.patch.object(scraper._http, "get", return_value=FakeResponse(REMOTEOK_FEED)), \
+                mock.patch.object(scraper, "save_jobs"), \
+                mock.patch.object(scraper, "load_previous_urls", return_value=set()), \
+                mock.patch.object(scraper, "append_history"), \
+                mock.patch.object(scraper, "archive_old_jobs", return_value=0):
+            stats = scraper.main(boards=["remoteok-api"], keywords=["python contract"])
+        self.assertEqual(stats["per_board"], {"remoteok-api": 1})
+        self.assertNotIn("Stale", str(scraper._REMOTEOK_CACHE))
+        self.assertIsNone(scraper._PEOPLEPERHOUR_CACHE)
+
+
 HN_STORIES = {"hits": [
     {"title": "Ask HN: Who wants to be hired? (November 2026)", "objectID": "50338726"},
     {"title": "Ask HN: Who is hiring? (November 2026)", "objectID": "50338728"},
