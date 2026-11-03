@@ -323,15 +323,15 @@ sources:
       weworkremotely: {access: html, robots: allowed, terms: review, note: "Search page; prefer the public RSS feed."}
       remoteok: {access: api, robots: allowed, terms: allowed, note: "Public API requires a visible link back to RemoteOK."}
       himalayas: {access: api, robots: none, terms: allowed, note: "Public jobs API; no robots.txt."}
-      jobicy: {access: api, robots: allowed, terms: allowed, note: "Public remote-jobs API."}
+      jobicy: {access: api, robots: allowed, terms: allowed, note: "Public remote-jobs API; latest 100 fetched once per run and filtered locally (the tag takes one word)."}
       landing-jobs: {access: api, robots: disallowed, terms: blocked, note: "robots.txt: Disallow /api/ for all agents."}
       hn-hiring: {access: api, robots: none, terms: allowed, note: "HN Algolia search API."}
       workingnomads: {access: api, robots: allowed, terms: review, note: "Undocumented search endpoint used by their site."}
       themuse: {access: api, robots: allowed, terms: allowed, note: "Documented public jobs API."}
       remoteco: {access: html, robots: allowed, terms: allowed, note: "Unscheduled 2026-09-30: search times out and returned 0 jobs for weeks."}
       arc: {access: html, robots: allowed, terms: review, note: "HTML listing page."}
-      fastwork: {access: html, robots: allowed, terms: review, note: "HTML search page (Thai freelance)."}
-      peopleperhour: {access: html, robots: allowed, terms: review, note: "HTML category page."}
+      fastwork: {access: html, robots: allowed, terms: review, note: "Unscheduled 2026-11-03 (owner): JS-only search page (results from a private API), and it lists freelancers' service offers, not client job postings."}
+      peopleperhour: {access: html, robots: allowed, terms: review, note: "HTML category page; posted date from the page JSON. Returns no job cards from the GitHub runner (2026-11-03), not bypassed."}
       toptal: {access: html, robots: n/a, terms: blocked, note: "Removed: scraped Google search results (Google ToS)."}
 
   - job: stock_prices
