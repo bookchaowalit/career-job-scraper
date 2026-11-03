@@ -348,7 +348,12 @@ jobs:
         # no board of its own and scraped Google search results (Google ToS).
         - arc
         # Contract/freelance marketplaces
+        # fastwork returns 0 since its search page became a JS app with no
+        # listings in the HTML (results come from a private API); kept on
+        # purpose (contract-first policy) until the owner decides (2026-11-03).
         - fastwork
+        # peopleperhour: works from a home connection; from the GitHub runner it
+        # returns no job cards (likely a bot check), which is not bypassed.
         - peopleperhour
       keywords:
         - python contract

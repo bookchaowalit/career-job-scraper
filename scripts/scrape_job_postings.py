@@ -338,15 +338,75 @@ def fetch_remotive(keyword: str, limit: int = 50) -> list:
         return []
 
 
-def fetch_weworkremotely(keyword: str) -> list:
-    """Fetch jobs from WeWorkRemotely via direct httpx."""
-    url = f"https://weworkremotely.com/remote-jobs/search?term={keyword}"
+_WWR_CACHE = None
+WWR_RSS_URL = "https://weworkremotely.com/remote-jobs.rss"
+
+
+def _load_wwr_feed() -> list:
+    """Fetch the public WWR RSS feed once per run (latest ~100 jobs)."""
+    global _WWR_CACHE
+    if _WWR_CACHE is not None:
+        return _WWR_CACHE
+    import xml.etree.ElementTree as ET
+    from email.utils import parsedate_to_datetime
+
+    rows = []
     try:
-        md = html_to_markdown(url)
-        return parse_weworkremotely(md, keyword)
+        resp = _http.get(WWR_RSS_URL, timeout=30, headers={"User-Agent": "SoloEmpire/1.0"})
+        resp.raise_for_status()
+        for item in ET.fromstring(resp.text).findall("./channel/item"):
+            text = {child.tag: (child.text or "").strip() for child in item}
+            company, _, title = text.get("title", "").partition(": ")
+            if not title:
+                company, title = "", text.get("title", "")
+            try:
+                posted = parsedate_to_datetime(text.get("pubDate", "")).date().isoformat()
+            except (TypeError, ValueError):
+                posted = ""
+            rows.append({
+                "title": title.strip(),
+                "company": company.strip(),
+                "location": text.get("region") or "Remote",
+                "url": text.get("link", ""),
+                "posted": posted,
+                "skills": text.get("skills", ""),
+                "category": text.get("category", ""),
+            })
     except Exception as e:
-        print(f"  Warning: WWR scrape failed for '{keyword}': {e}")
-        return []
+        print(f"  Warning: WWR RSS failed: {e}")
+    _WWR_CACHE = rows
+    return rows
+
+
+def fetch_weworkremotely(keyword: str) -> list:
+    """WWR postings for a keyword from the public RSS feed, filtered locally.
+
+    The search page returned nothing from the GitHub runner (2026-11-03);
+    source_coverage.yaml already asked for the RSS feed instead.
+    """
+    try:
+        from .job_role_relevance import contains_term
+    except ImportError:
+        from job_role_relevance import contains_term
+
+    tokens = _keyword_tokens(keyword)
+    jobs = []
+    for row in _load_wwr_feed():
+        context = f"{row['title']} {row['skills']} {row['category']}"
+        if tokens and not any(contains_term(context, token) for token in tokens):
+            continue
+        jobs.append({
+            "title": row["title"],
+            "company": row["company"],
+            "location": row["location"],
+            "salary": "",
+            "url": row["url"],
+            "source": "WeWorkRemotely",
+            "keyword": keyword,
+            "posted": row["posted"],
+            "tags": ",".join(part.strip() for part in row["skills"].split(",") if part.strip()),
+        })
+    return jobs
 
 
 def parse_weworkremotely(markdown: str, keyword: str) -> list:
@@ -526,30 +586,56 @@ def fetch_himalayas(keyword: str, pages: int = 3) -> list:
 
 
 # ── Jobicy (free API, no auth) ─────────────────────────────────────────────
-def fetch_jobicy(keyword: str) -> list:
-    """Fetch jobs from Jobicy.com API (free, no auth, remote-focused)."""
-    jobs = []
+_JOBICY_CACHE = None
+
+
+def _load_jobicy_feed() -> list:
+    """Fetch the latest 100 Jobicy jobs once per run."""
+    global _JOBICY_CACHE
+    if _JOBICY_CACHE is not None:
+        return _JOBICY_CACHE
     try:
-        url = f"https://jobicy.com/api/v2/remote-jobs?tag={keyword}"
-        resp = _http.get(url, timeout=30, headers={"User-Agent": "SoloEmpire/1.0"})
+        resp = _http.get("https://jobicy.com/api/v2/remote-jobs?count=100", timeout=30,
+                         headers={"User-Agent": "SoloEmpire/1.0"})
         resp.raise_for_status()
         data = resp.json()
-        if not data.get("success"):
-            return jobs
-        for j in data.get("jobs", []):
-            jobs.append({
-                "title": j.get("jobTitle", ""),
-                "company": j.get("companyName", ""),
-                "location": j.get("jobGeo", "Remote"),
-                "salary": "",
-                "url": j.get("url", ""),
-                "source": "Jobicy",
-                "keyword": keyword,
-                "posted": j.get("pubDate", "")[:10] if j.get("pubDate") else "",
-                "tags": ",".join(j.get("jobIndustry", [])[:3]),
-            })
+        _JOBICY_CACHE = data.get("jobs", []) if data.get("success") else []
     except Exception as e:
-        print(f"  Warning: Jobicy fetch failed for '{keyword}': {e}")
+        print(f"  Warning: Jobicy fetch failed: {e}")
+        _JOBICY_CACHE = []
+    return _JOBICY_CACHE
+
+
+def fetch_jobicy(keyword: str) -> list:
+    """Jobicy postings for a keyword, filtered locally from one feed fetch.
+
+    The API's tag takes one word; for our phrases it answered nothing or 400
+    (Jobicy had no new rows after 2026-10-29), so the feed is filtered here.
+    """
+    try:
+        from .job_role_relevance import contains_term
+    except ImportError:
+        from job_role_relevance import contains_term
+
+    tokens = _keyword_tokens(keyword)
+    jobs = []
+    for j in _load_jobicy_feed():
+        industries = j.get("jobIndustry") or []
+        types = j.get("jobType") or []
+        context = f"{j.get('jobTitle', '')} {' '.join(industries)} {' '.join(types)}"
+        if tokens and not any(contains_term(context, token) for token in tokens):
+            continue
+        jobs.append({
+            "title": j.get("jobTitle", ""),
+            "company": j.get("companyName", ""),
+            "location": j.get("jobGeo", "Remote"),
+            "salary": "",
+            "url": j.get("url", ""),
+            "source": "Jobicy",
+            "keyword": keyword,
+            "posted": j.get("pubDate", "")[:10] if j.get("pubDate") else "",
+            "tags": ",".join(industries[:3]),
+        })
     return jobs
 
 
@@ -1056,17 +1142,22 @@ def fetch_peopleperhour(keyword: str) -> list:
 
 
 # ── Arc.dev (high-paying remote, via __NEXT_DATA__ HTML parsing) ─────────────
+_ARC_CACHE = None
+
+
 def fetch_arc(keyword: str) -> list:
     """Fetch jobs from Arc.dev by parsing embedded __NEXT_DATA__ JSON."""
     jobs = []
     try:
         import re
         import json as _json
-        url = "https://arc.dev/remote-jobs"
-        resp = _http.get(url, follow_redirects=True, timeout=30,
-                         headers={"User-Agent": "Mozilla/5.0"})
-        resp.raise_for_status()
-        html = resp.text
+        global _ARC_CACHE
+        if _ARC_CACHE is None:
+            resp = _http.get("https://arc.dev/remote-jobs", follow_redirects=True, timeout=30,
+                             headers={"User-Agent": "Mozilla/5.0"})
+            resp.raise_for_status()
+            _ARC_CACHE = resp.text
+        html = _ARC_CACHE
         # Extract __NEXT_DATA__ JSON
         match = re.search(
             r'<script[^>]*id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL
@@ -1077,14 +1168,20 @@ def fetch_arc(keyword: str) -> list:
         data = _json.loads(match.group(1))
         props = data.get("props", {}).get("pageProps", {})
         all_jobs = props.get("arcJobs", []) + props.get("externalJobs", [])
-        kw_lower = keyword.lower()
+        try:
+            from .job_role_relevance import contains_term
+        except ImportError:
+            from job_role_relevance import contains_term
+        # Match the keyword's skill words: the whole phrase ("python contract")
+        # never appears in a title, so Arc matched nothing.
+        tokens = _keyword_tokens(keyword)
         for j in all_jobs:
             title = j.get("title", "")
             cats = [c.get("name", "") for c in j.get("categories", [])]
             tags_list = j.get("tags", []) if isinstance(j.get("tags"), list) else []
             # Keyword filter: match title, categories, or tags
-            searchable = (title + " " + " ".join(cats) + " " + " ".join(tags_list)).lower()
-            if kw_lower not in searchable:
+            searchable = title + " " + " ".join(cats) + " " + " ".join(tags_list)
+            if tokens and not any(contains_term(searchable, token) for token in tokens):
                 continue
             company_data = j.get("company", {})
             company = ""
@@ -1113,7 +1210,10 @@ def fetch_arc(keyword: str) -> list:
                 "url": job_url,
                 "source": "Arc.dev",
                 "keyword": keyword,
-                "posted": "",
+                "posted": (
+                    datetime.fromtimestamp(int(j["postedAt"]), timezone.utc).date().isoformat()
+                    if str(j.get("postedAt") or "").isdigit() else ""
+                ),
                 "tags": ", ".join(cats),
             })
         print(f"  Parsed {len(all_jobs)} Arc.dev jobs, {len(jobs)} match '{keyword}'")
@@ -1610,12 +1710,15 @@ def archive_old_jobs(max_age_days: int = 30):
     return len(archive)
 
 
+def reset_run_caches() -> None:
+    """Feeds fetched once per run are shared by that run's keywords only; a
+    long-lived scheduler process must not reuse them in its next run."""
+    global _REMOTEOK_CACHE, _PEOPLEPERHOUR_CACHE, _WWR_CACHE, _JOBICY_CACHE, _ARC_CACHE
+    _REMOTEOK_CACHE = _PEOPLEPERHOUR_CACHE = _WWR_CACHE = _JOBICY_CACHE = _ARC_CACHE = None
+
+
 def main(boards=None, keywords=None, min_salary=DEFAULT_MIN_SALARY, output_dir=None):
-    # Feeds fetched once per run (RemoteOK, PeoplePerHour) are shared by all
-    # keywords of this run only; a long-lived scheduler process must not reuse them.
-    global _REMOTEOK_CACHE, _PEOPLEPERHOUR_CACHE
-    _REMOTEOK_CACHE = None
-    _PEOPLEPERHOUR_CACHE = None
+    reset_run_caches()
     if boards is None:
         boards = ["remotive", "weworkremotely"]
     elif isinstance(boards, str):

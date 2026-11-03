@@ -67,6 +67,84 @@ class RemoteOKTests(unittest.TestCase):
         self.assertEqual(python_jobs[0]["location"], "Remote")
 
 
+WWR_RSS = """<?xml version="1.0"?><rss><channel>
+<item><title>Acme: Senior Python Developer</title><region>Anywhere in the World</region>
+ <skills>Python, Django</skills><category>Back-End Programming</category>
+ <pubDate>Mon, 02 Nov 2026 18:18:39 +0000</pubDate><link>https://weworkremotely.com/remote-jobs/acme-python</link></item>
+<item><title>Beta: Marketing Manager</title><region>USA Only</region><skills></skills><category>Sales and Marketing</category>
+ <pubDate>Sun, 01 Nov 2026 10:00:00 +0000</pubDate><link>https://weworkremotely.com/remote-jobs/beta-marketing</link></item>
+</channel></rss>"""
+
+JOBICY_FEED = {"success": True, "jobs": [
+    {"jobTitle": "React Engineer", "companyName": "Gamma", "jobGeo": "Anywhere", "url": "https://jobicy.com/jobs/1",
+     "pubDate": "2026-11-03 08:00:00", "jobIndustry": ["Engineering"], "jobType": ["contract"]},
+    {"jobTitle": "Account Executive", "companyName": "Delta", "jobGeo": "USA", "url": "https://jobicy.com/jobs/2",
+     "pubDate": "2026-11-02 08:00:00", "jobIndustry": ["Sales"], "jobType": ["full-time"]},
+]}
+
+ARC_HTML = (
+    '<script id="__NEXT_DATA__" type="application/json">'
+    '{"props":{"pageProps":{"arcJobs":[{"title":"Senior Python Engineer","categories":[{"name":"Backend"}],'
+    '"tags":["python"],"company":{"name":"Epsilon"},"urlString":"epsilon-python","postedAt":1793616312}],"externalJobs":[]}}}'
+    "</script>"
+)
+
+
+class FeedSourcesTests(unittest.TestCase):
+    def setUp(self):
+        scraper.reset_run_caches()
+
+    def tearDown(self):
+        scraper.reset_run_caches()
+
+    def test_weworkremotely_reads_the_rss_feed_once_and_filters_locally(self):
+        calls = []
+
+        def fake_get(url, **kwargs):
+            calls.append(url)
+            return FakeResponse(text=WWR_RSS)
+
+        with mock.patch.object(scraper._http, "get", side_effect=fake_get):
+            python_jobs = scraper.fetch_weworkremotely("python contract")
+            scraper.fetch_weworkremotely("react freelance")
+        self.assertEqual(calls, ["https://weworkremotely.com/remote-jobs.rss"])
+        self.assertEqual(len(python_jobs), 1)
+        job = python_jobs[0]
+        self.assertEqual((job["company"], job["title"]), ("Acme", "Senior Python Developer"))
+        self.assertEqual((job["posted"], job["location"], job["source"]), ("2026-11-02", "Anywhere in the World", "WeWorkRemotely"))
+        self.assertEqual(job["url"], "https://weworkremotely.com/remote-jobs/acme-python")
+
+    def test_jobicy_fetches_one_feed_without_a_phrase_tag(self):
+        # tag="AI automation contract" answered 400 and tag="python contract" nothing.
+        calls = []
+
+        def fake_get(url, **kwargs):
+            calls.append(url)
+            return FakeResponse(JOBICY_FEED)
+
+        with mock.patch.object(scraper._http, "get", side_effect=fake_get):
+            react = scraper.fetch_jobicy("react freelance")
+            scraper.fetch_jobicy("AI automation contract")
+        self.assertEqual(len(calls), 1)
+        self.assertNotIn("tag=", calls[0])
+        self.assertEqual([j["title"] for j in react], ["React Engineer"])
+        self.assertEqual(react[0]["posted"], "2026-11-03")
+
+    def test_arc_matches_keyword_words_not_the_whole_phrase(self):
+        calls = []
+
+        def fake_get(url, **kwargs):
+            calls.append(url)
+            return FakeResponse(text=ARC_HTML)
+
+        with mock.patch.object(scraper._http, "get", side_effect=fake_get):
+            jobs = scraper.fetch_arc("python contract")
+            scraper.fetch_arc("react freelance")
+        self.assertEqual([j["title"] for j in jobs], ["Senior Python Engineer"])
+        self.assertEqual(jobs[0]["posted"], "2026-11-02")  # postedAt is Unix seconds
+        self.assertEqual(len(calls), 1)
+
+
 class RunCacheTests(unittest.TestCase):
     def tearDown(self):
         scraper._REMOTEOK_CACHE = None
