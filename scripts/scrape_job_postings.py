@@ -1611,6 +1611,11 @@ def archive_old_jobs(max_age_days: int = 30):
 
 
 def main(boards=None, keywords=None, min_salary=DEFAULT_MIN_SALARY, output_dir=None):
+    # Feeds fetched once per run (RemoteOK, PeoplePerHour) are shared by all
+    # keywords of this run only; a long-lived scheduler process must not reuse them.
+    global _REMOTEOK_CACHE, _PEOPLEPERHOUR_CACHE
+    _REMOTEOK_CACHE = None
+    _PEOPLEPERHOUR_CACHE = None
     if boards is None:
         boards = ["remotive", "weworkremotely"]
     elif isinstance(boards, str):
