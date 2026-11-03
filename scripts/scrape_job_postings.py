@@ -397,37 +397,70 @@ def fetch_remoteok(keyword: str) -> list:
     return fetch_remoteok_api(keyword)
 
 
-def fetch_remoteok_api(keyword: str) -> list:
-    """Fetch jobs from RemoteOK public API (free, no auth)."""
-    url = f"https://remoteok.com/api?tag={keyword}&limit=50"
+_REMOTEOK_CACHE = None
+
+
+def _keyword_tokens(keyword: str) -> list:
+    """Skill words of a search keyword; employment words never match on their own."""
+    ignored = {"contract", "freelance", "remote", "part-time", "fractional"}
+    return [
+        token
+        for token in re.findall(r"[a-z0-9.+#-]+", keyword.lower())
+        if len(token) >= 2 and token not in ignored
+    ]
+
+
+def _load_remoteok_feed() -> list:
+    """Fetch RemoteOK's public feed once per run (latest ~100 jobs)."""
+    global _REMOTEOK_CACHE
+    if _REMOTEOK_CACHE is not None:
+        return _REMOTEOK_CACHE
     try:
-        resp = _http.get(url, timeout=30, headers={"User-Agent": "SoloEmpire/1.0"})
+        resp = _http.get("https://remoteok.com/api", timeout=30, headers={"User-Agent": "SoloEmpire/1.0"})
         resp.raise_for_status()
         data = resp.json()
-        jobs_raw = [j for j in data if isinstance(j, dict) and "position" in j]
-        jobs = []
-        for j in jobs_raw:
-            salary_parts = []
-            if j.get("salary_min"):
-                salary_parts.append(f"${int(j['salary_min'])//1000}k")
-            if j.get("salary_max"):
-                salary_parts.append(f"${int(j['salary_max'])//1000}k")
-            salary = " - ".join(salary_parts) if salary_parts else ""
-            jobs.append({
-                "title": j.get("position", ""),
-                "company": j.get("company", ""),
-                "location": j.get("location", "Remote") or "Remote",
-                "salary": salary,
-                "url": j.get("url", "") or j.get("apply", ""),
-                "source": "RemoteOK",
-                "keyword": keyword,
-                "posted": j.get("date", "")[:10] if j.get("date") else "",
-                "tags": ",".join(j.get("tags", [])),
-            })
-        return jobs
+        _REMOTEOK_CACHE = [j for j in data if isinstance(j, dict) and "position" in j]
     except Exception as e:
-        print(f"  Warning: RemoteOK API failed for '{keyword}': {e}")
-        return []
+        print(f"  Warning: RemoteOK API failed: {e}")
+        _REMOTEOK_CACHE = []
+    return _REMOTEOK_CACHE
+
+
+def fetch_remoteok_api(keyword: str) -> list:
+    """RemoteOK postings for a keyword, filtered locally from one feed fetch.
+
+    The API's ``tag`` filter takes one tag; our keywords are phrases such as
+    "python contract", for which it returns nothing (no RemoteOK rows from
+    2026-08-18 to 2026-11-03), so the feed is filtered here instead.
+    """
+    try:
+        from .job_role_relevance import contains_term
+    except ImportError:
+        from job_role_relevance import contains_term
+
+    tokens = _keyword_tokens(keyword)
+    jobs = []
+    for j in _load_remoteok_feed():
+        context = f"{j.get('position', '')} {' '.join(j.get('tags') or [])}"
+        if tokens and not any(contains_term(context, token) for token in tokens):
+            continue
+        salary_parts = []
+        if j.get("salary_min"):
+            salary_parts.append(f"${int(j['salary_min'])//1000}k")
+        if j.get("salary_max"):
+            salary_parts.append(f"${int(j['salary_max'])//1000}k")
+        jobs.append({
+            "title": j.get("position", ""),
+            "company": j.get("company", ""),
+            "location": j.get("location", "Remote") or "Remote",
+            "salary": " - ".join(salary_parts),
+            "url": j.get("url", "") or j.get("apply", ""),
+            "source": "RemoteOK",
+            "keyword": keyword,
+            "posted": j.get("date", "")[:10] if j.get("date") else "",
+            "tags": ",".join(j.get("tags") or []),
+        })
+    return jobs
 
 
 def parse_remoteok(markdown: str, keyword: str) -> list:
@@ -801,17 +834,21 @@ def fetch_hn_who_is_hiring(keyword: str) -> list:
     """Fetch jobs from Hacker News 'Who is hiring' monthly threads via Algolia API."""
     jobs = []
     try:
-        # Find the latest 'Who is hiring' thread
+        # The newest monthly thread, by date. A relevance search for "Who is
+        # hiring" returned a 2020 thread, so every posting was years old.
         resp = _http.get(
-            "https://hn.algolia.com/api/v1/search",
-            params={"query": "Who is hiring", "tags": "story", "hitsPerPage": 1},
+            "https://hn.algolia.com/api/v1/search_by_date",
+            params={"tags": "story,author_whoishiring", "hitsPerPage": 5},
             timeout=15,
         )
         resp.raise_for_status()
-        hits = resp.json().get("hits", [])
-        if not hits:
+        threads = [
+            hit for hit in resp.json().get("hits", [])
+            if str(hit.get("title", "")).startswith("Ask HN: Who is hiring?")
+        ]
+        if not threads:
             return jobs
-        thread_id = hits[0]["objectID"]
+        thread_id = threads[0]["objectID"]
 
         # Search comments in that thread for the keyword
         resp2 = _http.get(
@@ -839,6 +876,9 @@ def fetch_hn_who_is_hiring(keyword: str) -> list:
             # Extract URL from the comment
             url_match = re.search(r'href="([^"]+)"', text)
             job_url = url_match.group(1).replace("&#x2F;", "/").replace("&amp;", "&") if url_match else ""
+            if not job_url and c.get("objectID"):
+                # No link in the comment: the comment itself is the posting.
+                job_url = f"https://news.ycombinator.com/item?id={c['objectID']}"
 
             # Extract location from pipe-separated format
             parts = [p.strip() for p in re.sub(r'<[^>]+>', '', text.split("<p>")[0]).split("|")]
@@ -911,6 +951,33 @@ def fetch_fastwork(keyword: str) -> list:
 _PEOPLEPERHOUR_CACHE = None
 
 
+def relative_posted_date(text: str, now: datetime | None = None) -> str:
+    """'3 days ago' / 'posted 5 hours ago' → ISO date (UTC); anything else → ''.
+
+    PeoplePerHour only shows relative times, which no downstream date parser
+    reads, so every PeoplePerHour posting had no posted date.
+    """
+    match = re.search(r"(?:(\d+)\s+)?(minute|hour|day|week)s?\s+ago", text or "", re.IGNORECASE)
+    if not match:
+        return ""
+    amount = int(match.group(1) or 1)
+    unit = match.group(2).lower()
+    delta = {"minute": timedelta(minutes=amount), "hour": timedelta(hours=amount),
+             "day": timedelta(days=amount), "week": timedelta(weeks=amount)}[unit]
+    return ((now or datetime.now(timezone.utc)) - delta).date().isoformat()
+
+
+_PPH_POSTED = re.compile(r'"url":"(https:[^"]+?)"[^{}]*?"posted_dt":"(\d{4}-\d{2}-\d{2})[ T]')
+
+
+def _peopleperhour_posted_dates(html: str) -> dict:
+    """Job URL → posted date from the page's embedded state JSON (posted_dt)."""
+    return {
+        url.replace("\\u002F", "/").split("?")[0].split("#")[0]: day
+        for url, day in _PPH_POSTED.findall(html)
+    }
+
+
 def _load_peopleperhour_cards() -> list:
     """Fetch one bounded remote technology page and parse its project cards."""
     global _PEOPLEPERHOUR_CACHE
@@ -922,6 +989,7 @@ def _load_peopleperhour_cards() -> list:
         response = _http.get(url, headers=HEADERS, timeout=30, follow_redirects=True)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
+        posted_dates = _peopleperhour_posted_dates(response.text)
         rows = []
         seen_urls = set()
         for link in soup.find_all("a", href=True):
@@ -944,7 +1012,7 @@ def _load_peopleperhour_cards() -> list:
             context = " ".join((card or link).get_text(" ", strip=True).split())
             price_match = re.search(r"(?:\$|£|€)\s?[\d,]+(?:\s*-\s*(?:\$|£|€)?\s?[\d,]+)?", context)
             author_match = re.search(r"\bby\s+(.+?)\s+(?=\$|£|€)", context, re.IGNORECASE)
-            posted_match = re.search(r"\b(?:posted\s+)?(?:\d+\s+)?(?:minutes?|hours?|days?)\s+ago\b", context, re.IGNORECASE)
+            posted_match = re.search(r"\b(?:posted\s+)?(?:\d+\s+)?(?:minutes?|hours?|days?|weeks?)\s+ago\b", context, re.IGNORECASE)
             rows.append({
                 "title": title[:100],
                 "company": author_match.group(1).strip()[:80] if author_match else "PeoplePerHour Client",
@@ -952,7 +1020,9 @@ def _load_peopleperhour_cards() -> list:
                 "salary": price_match.group(0).replace(" ", "") if price_match else "",
                 "url": job_url,
                 "source": "PeoplePerHour",
-                "posted": posted_match.group(0) if posted_match else "",
+                # The page JSON carries the real date; "3 days ago" is only a fallback.
+                "posted": posted_dates.get(job_url)
+                or (relative_posted_date(posted_match.group(0)) if posted_match else ""),
                 "context": context,
             })
             seen_urls.add(job_url)
@@ -971,12 +1041,7 @@ def fetch_peopleperhour(keyword: str) -> list:
     except ImportError:
         from job_role_relevance import contains_term
 
-    ignored = {"contract", "freelance", "remote", "part-time", "fractional"}
-    tokens = [
-        token
-        for token in re.findall(r"[a-z0-9.+#-]+", keyword.lower())
-        if len(token) >= 2 and token not in ignored
-    ]
+    tokens = _keyword_tokens(keyword)
     jobs = []
     for card in _load_peopleperhour_cards():
         context = f"{card.get('title', '')} {card.get('context', '')}"
