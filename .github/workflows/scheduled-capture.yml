@@ -110,5 +110,5 @@ jobs:
           [ "$CAPTURE" = success ] || failed+=("capture")
           [ "$INGEST" = success ] || failed+=("ingest")
           body=$(jq -cn '$ARGS.positional as $f | {ok: ($f | length == 0), failed: $f}' --args "${failed[@]}")
-          curl -fsS -X POST https://solo-empire-monitor.bookchaowalit.workers.dev/heartbeat/job-capture \
+          curl -fsS -X POST https://monitor.bookchaowalit.com/heartbeat/job-capture \
             -H "Authorization: Bearer $HEARTBEAT_TOKEN" -H "Content-Type: application/json" -d "$body"

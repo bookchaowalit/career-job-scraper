@@ -23,7 +23,7 @@ endpoint เดียวที่ "รับ" คือ Apps Script `doPost` ใ
 | GitHub search API, HN Firebase, dev.to API, Product Hunt feed | `scrape_github_trending.py`, `scrape_hackernews.py`, `scrape_devto.py`, `scrape_producthunt.py` | GET | none in config | local |
 | Firecrawl | `scripts/scrape_property_listings.py` | POST `api.firecrawl.dev/v1/search` | `FIRECRAWL_API_KEY` | local |
 | book-job-data CLI → R2 | `scheduled-capture.yml` step Ingest | `book-job-data --input ... --data-lake-uri` (S3 API) | `JOB_DATA_R2_*`, `JOB_DATA_S3_ENDPOINT`, `JOB_DATA_LAKE_URI` | hosted |
-| Uptime Worker | step Heartbeat | POST `solo-empire-monitor.bookchaowalit.workers.dev/heartbeat/job-capture` | `HEARTBEAT_TOKEN` bearer | hosted |
+| Uptime Worker | step Heartbeat | POST `monitor.bookchaowalit.com/heartbeat/job-capture` | `HEARTBEAT_TOKEN` bearer | hosted |
 | Sentry | `scripts/_sentry.py` | sentry-sdk | `SENTRY_DSN` | hosted |
 | Telegram Bot API | `pipeline_health_monitor.py --send-telegram`, `auto_seed_tracker.py`, other `--send-telegram` scripts | POST `api.telegram.org/bot.../sendMessage` | `TELEGRAM_NOTI_BOT_TOKEN` or `TELEGRAM_BOT_TOKEN` | local, opt-in flag |
 | Google Drive / Dropbox / OneDrive | `chrome-extension/cloud.js` | OAuth via `chrome.identity`, upload APIs | operator OAuth, client ID in options | operator browser, opt-in |
