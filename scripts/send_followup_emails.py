@@ -43,7 +43,7 @@ TRACKER_FILE = DATA_DIR / "apply_tracker.csv"
 USER = {
     "name": 'Chaowalit "Book" Greepoke',
     "name_th": 'เชาวลิต "บุ๊ค" กรีโภค',
-    "email": "bookchaowalit@gmail.com",
+    "email": "bookchaowalit.work@gmail.com",
     "phone": "+66 65-416-9146",
     "portfolio": "bookchaowalit.com",
     "linkedin": "linkedin.com/in/chaowalit-greepoke",

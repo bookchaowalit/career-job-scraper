@@ -261,7 +261,7 @@ def optimize_profile(send_telegram_flag=False):
 
 ## Additional Info
 - Location: Bangkok, Thailand (Open to Remote)
-- Email: bookchaowalit@gmail.com
+- Email: bookchaowalit.work@gmail.com
 - Website: bookchaowalit.com
 - Languages: Thai (Native), English (Professional)
 """

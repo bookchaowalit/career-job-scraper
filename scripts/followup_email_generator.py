@@ -23,7 +23,7 @@ USER = {
     "name": "Chaowalit 'Book' Greepoke",
     "first_name": "Book",
     "title": "Senior Full-Stack Developer",
-    "email": "bookchaowalit@gmail.com",
+    "email": "bookchaowalit.work@gmail.com",
     "portfolio": "bookchaowalit.com",
 }
 

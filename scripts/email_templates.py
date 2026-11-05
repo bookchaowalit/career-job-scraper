@@ -77,7 +77,7 @@ def generate_english_email(company: str, title: str, source: str = '') -> dict:
 Best,
 Chaowalit Greepoke
 +66 65-416-9146
-bookchaowalit@gmail.com
+bookchaowalit.work@gmail.com
 linkedin.com/in/chaowalit-greepoke
 bookchaowalit.com"""
     
@@ -208,7 +208,7 @@ def generate_thai_email(company: str, title: str, source: str = '') -> dict:
 ขอบคุณครับ
 เชาวลิต กรีโภค
 +66 65-416-9146
-bookchaowalit@gmail.com
+bookchaowalit.work@gmail.com
 bookchaowalit.com"""
     
     return {

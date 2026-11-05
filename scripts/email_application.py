@@ -51,7 +51,9 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 GOOGLE_REFRESH_TOKEN = os.getenv("GOOGLE_REFRESH_TOKEN", "")
 GMAIL_API_ENABLED = bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET and GOOGLE_REFRESH_TOKEN)
-GMAIL_SENDER = "bookchaowalit@gmail.com"
+# Gmail API sends as the account the refresh token belongs to; replies go to CONTACT_EMAIL.
+GMAIL_SENDER = os.getenv("GMAIL_SENDER", "bookchaowalit@gmail.com")
+CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "bookchaowalit.work@gmail.com")
 
 
 def get_job_details(url: str) -> dict:
@@ -143,14 +145,14 @@ What sets me apart is my ability to deliver high-quality solutions for internati
 
 I am particularly excited about this opportunity at {company} because {add_company_specific_reason(company, title)}. I am eager to bring my technical skills, problem-solving abilities, and passion for building scalable applications to your team.
 
-I would welcome the opportunity to discuss how my experience and skills align with your needs. I am available for a conversation at your convenience and can be reached via email at bookchaowalit@gmail.com or through my portfolio at bookchaowalit.com.
+I would welcome the opportunity to discuss how my experience and skills align with your needs. I am available for a conversation at your convenience and can be reached via email at bookchaowalit.work@gmail.com or through my portfolio at bookchaowalit.com.
 
 Thank you for considering my application. I look forward to the possibility of contributing to {company}'s success.
 
 Best regards,
 Chaowalit "Book" Greepoke
 Senior Full-Stack Developer
-Email: bookchaowalit@gmail.com
+Email: bookchaowalit.work@gmail.com
 Portfolio: bookchaowalit.com
 GitHub: github.com/bookchaowalit
 Location: Bangkok, Thailand (Open to Remote)
@@ -190,7 +192,7 @@ def save_email_draft(job: dict, subject: str, body: str) -> Path:
     filepath = EMAIL_DRAFTS_DIR / filename
     
     with open(filepath, "w") as f:
-        f.write(f"From: Chaowalit Greepoke <bookchaowalit@gmail.com>\n")
+        f.write(f"From: Chaowalit Greepoke <bookchaowalit.work@gmail.com>\n")
         f.write(f"To: [RECIPIENT_EMAIL]\n")
         f.write(f"Subject: {subject}\n")
         f.write(f"Date: {datetime.now().strftime('%a, %d %b %Y %H:%M:%S %z')}\n")
@@ -237,6 +239,7 @@ def send_email_via_gmail(to_email: str, subject: str, body: str) -> bool:
     msg = MIMEText(body, "plain", "utf-8")
     msg["to"] = to_email
     msg["from"] = f"Chaowalit Greepoke <{GMAIL_SENDER}>"
+    msg["reply-to"] = CONTACT_EMAIL
     msg["subject"] = subject
     raw = base64.urlsafe_b64encode(msg.as_bytes()).decode("utf-8")
 

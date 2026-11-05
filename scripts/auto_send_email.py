@@ -55,7 +55,9 @@ DEFAULT_RESUME = RESUMES_DIR / "Resume_Chaowalit_Greepoke.pdf"
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 GOOGLE_REFRESH_TOKEN = os.getenv("GOOGLE_REFRESH_TOKEN", "")
-GMAIL_SENDER = "bookchaowalit@gmail.com"
+# Gmail API sends as the account the refresh token belongs to; replies go to CONTACT_EMAIL.
+GMAIL_SENDER = os.getenv("GMAIL_SENDER", "bookchaowalit@gmail.com")
+CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "bookchaowalit.work@gmail.com")
 GMAIL_API_ENABLED = bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET and GOOGLE_REFRESH_TOKEN)
 
 # ── Telegram ─────────────────────────────────────────────────────
@@ -315,6 +317,7 @@ def _build_mime(to_email: str, subject: str, body: str, attach_resume: bool = Tr
 
     msg["to"] = to_email
     msg["from"] = f"Chaowalit Greepoke <{GMAIL_SENDER}>"
+    msg["reply-to"] = CONTACT_EMAIL
     msg["subject"] = subject
     return msg
 

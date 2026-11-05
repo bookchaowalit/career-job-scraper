@@ -156,7 +156,7 @@ def generate_resume_markdown(variant_key, variant):
     md = f"""# Chaowalit "Book" Greepoke
 ## {variant['name']}
 
-📧 bookchaowalit@gmail.com | 🌐 bookchaowalit.com | 📍 Bangkok, Thailand (Open to Remote)
+📧 bookchaowalit.work@gmail.com | 🌐 bookchaowalit.com | 📍 Bangkok, Thailand (Open to Remote)
 
 ---
 

@@ -54,7 +54,7 @@ RESUME_PDF = DATA_DIR / "Chaowalit_Greepoke_FullStack_Developer.pdf"
 APPLICANT = {
     "first_name": "Chaowalit",
     "last_name": "Greepoke",
-    "email": "bookchaowalit@gmail.com",
+    "email": "bookchaowalit.work@gmail.com",
     "phone": "+66812345678",
     "country": "Thailand",
     "linkedin": "https://linkedin.com/in/bookchaowalit",
