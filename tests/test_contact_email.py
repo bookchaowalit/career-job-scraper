@@ -5,10 +5,14 @@ Gmail API senders still send from the account their refresh token belongs to
 (``GMAIL_SENDER``, personal by default until a work-account token exists), and
 set Reply-To to the work address so replies land there.
 """
+import base64
+import email
 import importlib
 import re
 import sys
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
@@ -26,11 +30,30 @@ def test_personal_address_only_as_gmail_sender_default():
     assert hits == []
 
 
-def test_auto_send_email_sets_reply_to_work_address():
+def _script(name):
     sys.path.insert(0, str(SCRIPTS))
     try:
-        mod = importlib.import_module("auto_send_email")
+        return importlib.import_module(name)
     finally:
         sys.path.remove(str(SCRIPTS))
-    msg = mod._build_mime("hr@example.com", "Hello", "Body", attach_resume=False)
-    assert msg["reply-to"] == WORK_EMAIL
+
+
+def _parse_raw(payload):
+    return email.message_from_bytes(base64.urlsafe_b64decode(payload["raw"]))
+
+
+# Every Gmail API MIME builder sends with the personal-account token, so each
+# one must set Reply-To or replies keep going to the personal inbox.
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda: _script("auto_send_email")._build_mime("hr@example.com", "Hi", "Body", attach_resume=False),
+        lambda: _parse_raw(_script("send_followup_emails").create_message("hr@example.com", "Hi", "Body")),
+        lambda: _parse_raw(
+            _script("send_application_emails").create_message_with_attachment("hr@example.com", "Hi", "Body", None)
+        ),
+    ],
+    ids=["auto_send_email", "send_followup_emails", "send_application_emails"],
+)
+def test_gmail_builders_set_reply_to_work_address(build):
+    assert build()["reply-to"] == WORK_EMAIL
