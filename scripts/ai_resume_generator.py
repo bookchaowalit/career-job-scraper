@@ -59,7 +59,7 @@ Chaowalit "Book" Greepoke
 Full-Stack Developer | Remote-First
 
 CONTACT:
-- Email: bookchaowalit@gmail.com
+- Email: bookchaowalit.work@gmail.com
 - Portfolio: https://bookchaowalit.com
 - Location: Thailand (open to remote worldwide)
 

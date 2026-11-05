@@ -223,7 +223,7 @@ def generate_tailored_resume_template(job: dict) -> str:
 CHAOWALIT GREepoke "BOOK"
 Senior Full-Stack Developer | AI Integration Specialist
 Bangkok, Thailand | Remote-Ready
-Email: bookchaowalit@gmail.com | GitHub: github.com/bookchaowalit
+Email: bookchaowalit.work@gmail.com | GitHub: github.com/bookchaowalit
 
 ═══════════════════════════════════════════════════════════════════════
 

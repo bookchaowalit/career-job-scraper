@@ -52,6 +52,8 @@ FOLLOWUP_LOG = DATA_DIR / "followup_log.json"
 
 # Default resume file
 DEFAULT_RESUME = RESUMES_DIR / "Resume_Chaowalit_Greepoke.pdf"
+# Gmail API sends as the account the refresh token belongs to; replies go to CONTACT_EMAIL.
+CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "bookchaowalit.work@gmail.com")
 
 # Valid email regex
 EMAIL_RE = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
@@ -316,6 +318,7 @@ def create_message_with_attachment(to, subject, body, pdf_path):
     """Create a MIME message with PDF attachment."""
     message = MIMEMultipart()
     message['to'] = to
+    message['reply-to'] = CONTACT_EMAIL
     message['subject'] = subject
     
     # Email body

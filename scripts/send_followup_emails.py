@@ -43,7 +43,7 @@ TRACKER_FILE = DATA_DIR / "apply_tracker.csv"
 USER = {
     "name": 'Chaowalit "Book" Greepoke',
     "name_th": 'เชาวลิต "บุ๊ค" กรีโภค',
-    "email": "bookchaowalit@gmail.com",
+    "email": "bookchaowalit.work@gmail.com",
     "phone": "+66 65-416-9146",
     "portfolio": "bookchaowalit.com",
     "linkedin": "linkedin.com/in/chaowalit-greepoke",
@@ -51,6 +51,8 @@ USER = {
 
 # Follow-up delay: minimum days after original send before following up
 MIN_DAYS_SINCE_SEND = 2
+# Gmail API sends as the account the refresh token belongs to; replies go to CONTACT_EMAIL.
+CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "bookchaowalit.work@gmail.com")
 
 
 def load_gmail_service():
@@ -190,6 +192,7 @@ def create_message(to, subject, body) -> dict:
     """Create a MIME message for Gmail API (no attachment for follow-ups)."""
     message = MIMEText(body, 'plain', 'utf-8')
     message['to'] = to
+    message['reply-to'] = CONTACT_EMAIL
     message['subject'] = subject
     raw = base64.urlsafe_b64encode(message.as_bytes()).decode('utf-8')
     return {'raw': raw}

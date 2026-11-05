@@ -48,7 +48,7 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 PROFILE = {
     "name": "Chaowalit \"Book\" Greepoke",
     "title": "Senior Full-Stack Developer",
-    "email": "bookchaowalit@gmail.com",
+    "email": "bookchaowalit.work@gmail.com",
     "website": "bookchaowalit.com",
     "github": "github.com/bookchaowalit",
     "location": "Bangkok, Thailand",

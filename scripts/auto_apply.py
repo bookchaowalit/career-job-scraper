@@ -219,12 +219,12 @@ My technical expertise aligns with your requirements. I have extensive experienc
 
 What sets me apart is my ability to deliver high-quality solutions for international clients. I have successfully completed 50+ freelance projects across US, EU, and APAC markets, consistently receiving 5-star ratings.
 
-I would welcome the opportunity to discuss how my experience aligns with your needs. I can be reached at bookchaowalit@gmail.com or through my portfolio at bookchaowalit.com.
+I would welcome the opportunity to discuss how my experience aligns with your needs. I can be reached at bookchaowalit.work@gmail.com or through my portfolio at bookchaowalit.com.
 
 Best regards,
 Chaowalit "Book" Greepoke
 Senior Full-Stack Developer
-Email: bookchaowalit@gmail.com
+Email: bookchaowalit.work@gmail.com
 Portfolio: bookchaowalit.com
 GitHub: github.com/bookchaowalit
 Location: Bangkok, Thailand (Open to Remote)
@@ -243,7 +243,7 @@ Generated: {datetime.now().strftime('%Y-%m-%d')} | Score: {job.get('score', 0)}
 
 ## CHAOWALIT GREepoke "BOOK"
 **Senior Full-Stack Developer | AI Integration Specialist**
-Email: bookchaowalit@gmail.com | GitHub: github.com/bookchaowalit
+Email: bookchaowalit.work@gmail.com | GitHub: github.com/bookchaowalit
 
 ## PROFESSIONAL SUMMARY
 Senior full-stack developer with 8+ years, specializing in {', '.join(skill_list[:3]) if skill_list else 'Python, React, TypeScript'}.
@@ -270,7 +270,7 @@ def save_email_draft(job: dict, cover_letter: str) -> Path:
     filepath = EMAIL_DRAFTS_DIR / filename
 
     with open(filepath, "w") as f:
-        f.write(f"From: Chaowalit Greepoke <bookchaowalit@gmail.com>\n")
+        f.write(f"From: Chaowalit Greepoke <bookchaowalit.work@gmail.com>\n")
         f.write(f"To: [RECIPIENT]\n")
         f.write(f"Subject: Application for {job.get('title', 'Developer')} - Chaowalit Greepoke\n")
         f.write(f"Date: {datetime.now().strftime('%a, %d %b %Y %H:%M:%S %z')}\n\n")

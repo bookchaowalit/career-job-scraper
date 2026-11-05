@@ -242,7 +242,7 @@ Thank you for your time and consideration.
 Best regards,
 Chaowalit "Book" Greepoke
 Senior Full-Stack Developer
-bookchaowalit@gmail.com
+bookchaowalit.work@gmail.com
 bookchaowalit.com
 """
     return email

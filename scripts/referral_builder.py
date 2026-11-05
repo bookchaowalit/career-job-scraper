@@ -54,7 +54,7 @@ USER_PROFILE = {
     "title": "Senior Full-Stack Developer",
     "skills": ["Python", "React", "Next.js", "TypeScript", "Node.js", "AI/ML", "AWS", "PostgreSQL"],
     "location": "Bangkok, Thailand",
-    "email": "bookchaowalit@gmail.com",
+    "email": "bookchaowalit.work@gmail.com",
     "linkedin": "https://www.linkedin.com/in/chaowalit",
     "portfolio": "https://bookchaowalit.com",
 }

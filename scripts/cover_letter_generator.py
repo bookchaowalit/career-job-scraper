@@ -22,7 +22,7 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 USER = {
     "name": "Chaowalit 'Book' Greepoke",
     "title": "Senior Full-Stack Developer",
-    "email": "bookchaowalit@gmail.com",
+    "email": "bookchaowalit.work@gmail.com",
     "location": "Bangkok, Thailand (Open to Remote)",
     "phone": "+66-XXX-XXX-XXXX",
     "linkedin": "linkedin.com/in/bookchaowalit",

@@ -145,7 +145,7 @@ Generated: {now} | Score: {job.get('score', 0)} | URL: {job.get('url', '')}
 ## CHAOWALIT GREepoke "BOOK"
 **Senior Full-Stack Developer | AI Integration Specialist**
 Bangkok, Thailand | Remote-Ready
-Email: bookchaowalit@gmail.com | GitHub: github.com/bookchaowalit
+Email: bookchaowalit.work@gmail.com | GitHub: github.com/bookchaowalit
 
 ---
 
