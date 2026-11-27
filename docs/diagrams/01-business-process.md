@@ -3,17 +3,19 @@
 ระบบนี้เป็น producer ของข้อมูลประกาศงาน (job discovery capture) + เครื่องมือเตรียมใบสมัครของ operator คนเดียว
 ไม่มี web app และไม่มี server ของตัวเอง "deploy" คือข้อมูลที่ถูก ingest เข้า R2 ทุก 6 ชั่วโมง
 
+Last reviewed: 2026-11-27 · commit `bd0826b`
+
 ## As-Is (จากโค้ดวันนี้)
 
 มีสองเส้นทางที่รันจริง:
 
-1. **Hosted capture (Track B)** บน GitHub Actions: `scheduled-capture.yml` → `scripts/cloud_capture.py` รัน 3 job → `book-job-data` ingest เข้า R2
+1. **Hosted capture (Track B)** บน GitHub Actions: `scheduled-capture.yml` (เป็น `workflow_dispatch` ที่ถูกสั่งโดย jobs queue `platform-jobs-worker` job `career-job-capture` cron `17 */6 * * *` UTC ไม่ใช่ `schedule:` ใน workflow) → `scripts/cloud_capture.py` รัน 3 job → `book-job-data` ingest เข้า R2
 2. **Local scheduler** บนเครื่อง operator (Windows Task Scheduler / cron ทุก 5 นาที): `scripts/scheduled_run.py` → `main.py run` (9 job ที่ `enabled: true`) → `pipeline_health_monitor.py`
    และ flow เตรียมใบสมัครแบบ manual (`application_review.py build / prepare / record-submission`)
 
 ```mermaid
 flowchart TD
-  subgraph HOSTED["Hosted capture: GitHub Actions, cron 17 */6 * * *"]
+  subgraph HOSTED["Hosted capture: GitHub Actions, dispatched by jobs queue every 6 h"]
     H1["job_postings: remote boards"] --> H2["career_postings: Greenhouse boards"]
     H2 --> H3["job_match_filter, seed_tracker=false"]
     H3 --> H4["book-job-data ingest: job_postings.csv + matched_jobs.csv"]
@@ -44,7 +46,7 @@ flowchart TD
   L6 --> A1
 ```
 
-Sources: `.github/workflows/scheduled-capture.yml`, `scripts/cloud_capture.py`, `scripts/scheduled_run.py`, `ops/windows/scheduled-task.ps1`, `setup_cron.sh`, `config/jobs.yaml`, `scripts/filter_job_matches.py`, `scripts/application_review.py`, `CAREER-WORKFLOW.md`, `RUNBOOK.md`
+Sources: `.github/workflows/scheduled-capture.yml`, `.github/workflows/ci.yml`, `scripts/cloud_capture.py`, `scripts/scheduled_run.py`, `ops/windows/scheduled-task.ps1`, `setup_cron.sh`, `config/jobs.yaml`, `scripts/filter_job_matches.py`, `scripts/application_review.py`, `CAREER-WORKFLOW.md`, `RUNBOOK.md`
 
 Lane รอง (property, Facebook Group posts ผ่าน Chrome extension) เป็น flow ของ operator แบบ manual: capture แท็บที่เปิด → export CSV → importer offline → review queue
 แถวเริ่มที่ `review_decision=pending`, `outreach_status=not_contacted` เสมอ (ดู [11-state-machines.md](11-state-machines.md))
@@ -75,8 +77,20 @@ flowchart LR
 
 Sources: `PRODUCT.md`, `BOUNDARY.md`, `docs/UPGRADE-PLAN.md`, `docs/measurement/KPI-PLAN.md`, `DOCPACK/08-rtm.md`
 
+## Gap
+
+| ID | As-Is → To-Be | Status | Owner | Evidence |
+|---|---|---|---|---|
+| G1 | สอง tracker (`data/apply_tracker.csv` + Solo Empire JOB-TRACKER) → bridge หรือเลิกอันเดียว | decide | owner | `PRODUCT.md` §Claim hygiene (Planned); ยังไม่มี spec |
+| G2 | ไม่มี column contract `job.v1` สำหรับ `job_postings.csv` / `matched_jobs.csv` → contract + test เทียบกับ `book-job-data` | todo | claude | `PRODUCT.md` §Next improvements 2, `DOCPACK/08-rtm.md` GAP-01; `contracts/` มีแค่ facebook-group-post, property-capture, property-demand |
+| G3 | repo มีสคริปต์ analytics/dashboard ของตัวเอง (เช่น `scripts/analytics_dashboard_v2.py`) → collection-only, analytics ที่ lake | todo | claude | `PRODUCT.md` §Next improvements 4 |
+| G4 | lane property (`property_listings` `enabled: true`) อยู่ใน repo นี้ → ย้ายไป `book-property-scraping` | blocked | owner | `BOUNDARY.md` Status (2026-09-30): รอ `book-property-scraping` รับ demand/lead workflow |
+| G5 | จำนวน posting ต่อ run อยู่แค่ใน log → chart KPI-L-01..03 | todo | claude | `docs/measurement/KPI-PLAN.md` §Dashboards and alerts ("not instrumented") |
+| G6 | Windows CI รันแค่ scheduler tests → ครอบ offline suite ทั้งหมด และแยก requirements runtime/extra | todo | claude | `docs/UPGRADE-PLAN.md` P1/P2; `.github/workflows/ci.yml` job `windows-scheduler` รัน 3 ไฟล์ |
+| G7 | discovery feeds 4 ตัว (GitHub trending, HN, dev.to, Product Hunt) ไม่มีผู้ใช้ → ย้ายหรือปิด | decide | owner | `DOCPACK/08-rtm.md` GAP-04 |
+
 ## Open questions
 
-- To-Be ของ application tracker: จะเลิกใช้ `apply_tracker.csv` เมื่อไหร่ และ JOB-TRACKER เป็น source of record เดียวหรือไม่ (ยังเป็น Planned)
-- `property_listings` (Firecrawl, ddproperty) ยัง `enabled: true` ในขณะที่ BOUNDARY บอกว่า property จะย้ายออก: เป็นของ lane ไหนในระยะยาว
-- Discovery feeds (GitHub trending, HN, dev.to, Product Hunt) ไม่มีผู้ใช้ปลายทางที่ระบุ (`DOCPACK/08-rtm.md` GAP-04)
+- To-Be ของ application tracker (G1): จะเลิกใช้ `apply_tracker.csv` เมื่อไหร่ และ JOB-TRACKER เป็น source of record เดียวหรือไม่ (ยังเป็น Planned)
+- (G4) `property_listings` (Firecrawl, ddproperty) ยัง `enabled: true` ในขณะที่ BOUNDARY บอกว่า property จะย้ายออก: เป็นของ lane ไหนในระยะยาว
+- (G7) Discovery feeds (GitHub trending, HN, dev.to, Product Hunt) ไม่มีผู้ใช้ปลายทางที่ระบุ (`DOCPACK/08-rtm.md` GAP-04)
